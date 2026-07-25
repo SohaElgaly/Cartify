@@ -8,11 +8,24 @@
 import SwiftUI
 
 struct HomeView: View {
+    @State private var viewModel: HomeViewModel
+    init(viewModel: HomeViewModel) {
+           _viewModel = State(initialValue: viewModel)
+       }
+
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        ScrollView {
+            VStack(spacing: 24) {
+                HomeNavigationBar(username: "Soha")
+            }
+            .padding()
+        }
+        Text("Products:\(viewModel.products.count)")
+            .task {
+               await viewModel.loadProducts()
+            }
     }
 }
-
 #Preview {
-    HomeView()
+    HomeView(viewModel: AppContainer().makeHomeViewModel())
 }

@@ -19,9 +19,10 @@ final class HomeViewModel {
     
     func loadProducts() async {
         do {
-          products = try await repository.fetchProducts()
-        } catch {
-            
-        }
+                products = try await repository.fetchProducts()
+                print("Products count:", products.count)
+            } catch {
+                print(error)
+            }
     }
 }

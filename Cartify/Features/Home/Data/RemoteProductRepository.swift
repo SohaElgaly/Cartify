@@ -13,7 +13,10 @@ final class RemoteProductRepository: ProductRepository {
         self.apiClient = apiClient
     }
     func fetchProducts() async throws -> [Product] {
-        return try await apiClient.send(endPoint: ProductEndPoint.products)
+        let response: APIResponse<ProductsResponse> =
+         try await apiClient.send(endPoint: ProductEndPoint.products)
+
+       return response.data.products
     }
     
     
