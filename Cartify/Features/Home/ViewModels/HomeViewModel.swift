@@ -10,17 +10,25 @@ import Foundation
 @MainActor
 @Observable
 final class HomeViewModel {
-    private(set) var products: [Product] = []
-    private let repository: ProductRepository
-    init(repository: ProductRepository) {
+    private(set) var featuredProducts: [Product] = []
+    private(set) var newArrivals: [Product] = []
+    private(set) var categories: [Category] = []
+    private(set) var banners: [Banner] = []
+    private let repository: HomeRepository
+    var searchText = ""
+    init(repository: HomeRepository) {
         self.repository = repository
     }
     
     
-    func loadProducts() async {
+    func loadHome() async {
         do {
-                products = try await repository.fetchProducts()
-                print("Products count:", products.count)
+            let home = try await repository.fetchHome()
+            banners = home.banners
+            categories = home.categories 
+            newArrivals = home.newArrivals
+            featuredProducts = home.featuredProducts
+            print(home)
             } catch {
                 print(error)
             }

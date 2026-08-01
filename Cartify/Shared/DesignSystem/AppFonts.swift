@@ -7,13 +7,35 @@
 
 import Foundation
 import SwiftUI
+
+
 enum AppFonts {
 
-    static let title = Font.title2.bold()
+    // MARK: - Titles
 
-    static let headline = Font.headline
+    static let largeTitle = Font.custom("Poppins-Bold", size: 32)
 
-    static let body = Font.body
+    static let title = Font.custom("Poppins-Bold", size: 24)
 
-    static let caption = Font.caption
+    static let title2 = Font.custom("Poppins-SemiBold", size: 20)
+
+    // MARK: - Headlines
+
+    static let headline = Font.custom("Poppins-SemiBold", size: 17)
+
+    // MARK: - Body
+
+    static let body = Font.custom("Poppins-Regular", size: 16)
+
+    static let bodyMedium = Font.custom("Poppins-Medium", size: 16)
+
+    // MARK: - Caption
+
+    static let caption = Font.custom("Poppins-Regular", size: 14)
+
+    static let captionMedium = Font.custom("Poppins-Medium", size: 14)
+
+    // MARK: - Small
+
+    static let footnote = Font.custom("Poppins-Regular", size: 12)
 }

@@ -12,13 +12,14 @@ struct HomeNavigationBar: View {
     var body: some View {
         HStack(alignment: .top) {
             VStack(alignment:.leading,spacing: 4) {
-                Text("Welcome 👋")
-                    .font(.title)
+                Text("Welcome")
+                    .font(.custom("Poppins-Regular", size: 24))
                     .fontWeight(.semibold)
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(Color.black)
                 
                 Text(username)
-                    .font(.title)
+                    .foregroundStyle(Color.black)
+                    .font(.custom("Poppins-Regular", size: 24))
                     .fontWeight(.semibold)
                 
             }
@@ -27,7 +28,7 @@ struct HomeNavigationBar: View {
             } label: {
             Image(systemName: "bell")
                 .font(.title3)
-                .foregroundStyle(.primary)
+                .foregroundStyle(.textPrimary)
                 .frame(width: 44, height: 44)
                 .background(.gray.opacity(0.12))
                 .clipShape(Circle())

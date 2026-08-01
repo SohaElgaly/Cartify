@@ -10,7 +10,7 @@ import Foundation
 final class AppContainer {
     private let session: URLSession
     let apiClient : APIClient
-    let productRepository : ProductRepository
+    let homeRepository : HomeRepository
     
     init() {
         let configuration = URLSessionConfiguration.default
@@ -19,11 +19,11 @@ final class AppContainer {
         
         self.session = URLSession(configuration: configuration)
         self.apiClient = APIClient(session: session)
-        self.productRepository = RemoteProductRepository(apiClient: apiClient)
+        self.homeRepository = HomeRemoteRepository(apiClient: apiClient)
     }
    
     
     func makeHomeViewModel() -> HomeViewModel {
-        HomeViewModel(repository: productRepository)
+        HomeViewModel(repository: homeRepository)
     }
 }
