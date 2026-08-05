@@ -28,36 +28,26 @@ struct ProductCard: View {
             RoundedRectangle(
                 cornerRadius: AppCornerRadius.medium
             )
-            .stroke(Color.gray.opacity(0.15), lineWidth: 1)
+            .stroke(AppColors.border, lineWidth: 1)
         }
     }
 }
 
-// MARK: - Components
+// MARK: - SubViews
 
 private extension ProductCard {
 
     var imageSection: some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.1))
-            .frame(height: 140)
-            .frame(maxWidth: .infinity)
-            .overlay {
-
-                Image(systemName: "photo")
-                    .font(.system(size: 36))
-                    .foregroundStyle(.secondary)
-
-                // Later:
-                //
-                // AsyncImage(url: URL(string: product.thumbnail))
-                //
-            }
-            .clipShape(
-                RoundedRectangle(
-                    cornerRadius: AppCornerRadius.medium
-                )
+        NetworkImage(
+            url: nil,
+        )
+        .frame(height: 140)
+        .frame(maxWidth: .infinity)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: AppCornerRadius.medium
             )
+        )
     }
 
     var informationSection: some View {
@@ -67,7 +57,6 @@ private extension ProductCard {
             Text(product.title)
                 .font(AppFonts.headline)
                 .lineLimit(2)
-                .frame(height: 20, alignment: .topLeading)
                 .foregroundStyle(AppColors.textPrimary)
                 
 
@@ -75,20 +64,9 @@ private extension ProductCard {
                 .font(AppFonts.body)
                 .foregroundStyle(AppColors.textSecondary)
 
-            HStack(spacing: AppSpacing.xs) {
+            RatingView(rating: product.rating)
 
-                Image(systemName: "star.fill")
-                    .foregroundStyle(.yellow)
-
-                Text(product.rating.formatted())
-                    .font(AppFonts.body)
-                    .foregroundStyle(AppColors.textSecondary)
-            }
-
-            Text(product.price,
-                 format: .currency(code: "GBP"))
-            .font(AppFonts.headline)
-            .foregroundStyle(AppColors.primary)
+            PriceView(price: product.price)
         }
         .padding(.horizontal, AppSpacing.medium)
         .padding(.bottom, AppSpacing.medium)
@@ -97,6 +75,7 @@ private extension ProductCard {
 
 #Preview {
     ProductCard(product: .mock)
-    .frame(width: 200)
-    .padding()
+        .frame(width: 180)
+        .padding()
+        .background(AppColors.background)
 }
