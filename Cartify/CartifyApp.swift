@@ -11,7 +11,7 @@ import SwiftUI
 struct CartifyApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            HomeView(viewModel: AppContainer().makeHomeViewModel())
         }
     }
 }

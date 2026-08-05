@@ -14,7 +14,7 @@ final class APIClient {
     init(session: URLSession) {
         self.session = session
         self.decoder = JSONDecoder()
-        self.baseURL = URL(string: "https://api.cartify.com/api/v1")!
+        self.baseURL = URL(string: "https://cartify-backend-production-eced.up.railway.app/api")!
     }
     
     func send<T: Decodable>(endPoint: EndPoint) async throws -> T {
