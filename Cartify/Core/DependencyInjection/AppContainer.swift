@@ -8,9 +8,11 @@
 import Foundation
 
 final class AppContainer {
+    static let shared = AppContainer()
     private let session: URLSession
     let apiClient : APIClient
     let homeRepository : HomeRepository
+    let productRepository: ProductRepository
     
     init() {
         let configuration = URLSessionConfiguration.default
@@ -20,10 +22,14 @@ final class AppContainer {
         self.session = URLSession(configuration: configuration)
         self.apiClient = APIClient(session: session)
         self.homeRepository = HomeRemoteRepository(apiClient: apiClient)
+        self.productRepository = ProductRemoteRepository(apiClient: apiClient)
     }
    
     
     func makeHomeViewModel() -> HomeViewModel {
         HomeViewModel(repository: homeRepository)
+    }
+func makeProductDetailsViewModel() -> ProductDetailsViewModel {
+        ProductDetailsViewModel(repository: productRepository)
     }
 }
