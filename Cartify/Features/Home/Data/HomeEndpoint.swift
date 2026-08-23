@@ -11,10 +11,7 @@ enum HomeEndpoint: EndPoint {
  
     case home
     var path: String {
-        switch self {
-        case .home:
             return "/home"
-        }
     }
     var method: HTTPMethod {
         .get

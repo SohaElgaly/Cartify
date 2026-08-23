@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Variant: Decodable, Identifiable {
+struct Variant: Decodable, Identifiable, Hashable {
 
     let id: String
     let size: String
