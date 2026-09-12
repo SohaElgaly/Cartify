@@ -11,7 +11,9 @@ import SwiftUI
 struct CartifyApp: App {
     var body: some Scene {
         WindowGroup {
-            HomeView(viewModel: AppContainer().makeHomeViewModel())
+            //            HomeView(viewModel: AppContainer().makeHomeViewModel())
+            AuthFlowView()
         }
     }
 }
+

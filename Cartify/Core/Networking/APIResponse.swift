@@ -11,3 +11,13 @@ struct APIResponse<T: Decodable>: Decodable {
     let message: String
     let data: T
 }
+
+struct APIError: Decodable {
+    let success: Bool
+    let message: String
+    let error: ErrorDetail
+}
+
+struct ErrorDetail: Decodable {
+    let code: String
+}

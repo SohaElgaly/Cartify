@@ -11,7 +11,7 @@ enum ProductEndpoint: EndPoint {
     var path: String {
         switch self {
         case .productDetails(let id):
-            "/products/\(id)"
+            "api/products/\(id)"
         }
     }
     var method: HTTPMethod {
