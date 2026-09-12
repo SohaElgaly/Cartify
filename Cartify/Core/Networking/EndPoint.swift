@@ -14,6 +14,7 @@ protocol EndPoint {
     var queryItems:[URLQueryItem] {get}
     var headers:[String: String] {get}
     var body: Data? {get}
+    var requiresAuthentication:Bool {get}
 }
 
 
@@ -26,5 +27,8 @@ extension EndPoint {
     }
     var body: Data? {
         nil
+    }
+    var requiresAuthentication:Bool {
+        false
     }
 }
