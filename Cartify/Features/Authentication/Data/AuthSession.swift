@@ -36,8 +36,8 @@ final class AuthSession {
     func authenticate() {
         state = .authenticated
     }
-    func logout() throws {
-        try tokenStorage.clear()
+    func invalidateSession() throws {
         state = .unauthenticated
+        try tokenStorage.clear()
     }
 }

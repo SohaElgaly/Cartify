@@ -4,7 +4,7 @@
 //
 //  Created by Soha Elgaly on 09/09/2026.
 //
-
+//
 import SwiftUI
 
 struct AuthFlowView: View {
@@ -13,7 +13,7 @@ struct AuthFlowView: View {
     var body: some View {
         Group {
             if authSession.state == .authenticated {
-                HomeView(viewModel: AppContainer.shared.makeHomeViewModel())
+                HomeView(viewModel: AppContainer.shared.makeHomeViewModel(), logoutVM: AppContainer.shared.makeLogoutViewModel())
             } else {
                 NavigationStack(path: $path) {
                     LoginView(viewModel: AppContainer.shared.makeLoginViewModel(), onRegisterTapped: {path.append(.register)})
@@ -25,6 +25,13 @@ struct AuthFlowView: View {
                                 onSignInTapped: { path.removeLast() })
                             case .login:
                                 LoginView(viewModel: AppContainer.shared.makeLoginViewModel(), onRegisterTapped: {path.append(.register)})
+                            case .forgotPassword:
+                                ForgotPasswordView(viewModel: AppContainer.shared.makeForgotPasswordViewModel())
+                            case .resetPassword:
+                                ResetPasswordView(
+                                    viewModel: AppContainer.shared.makeResetPasswordViewModel(),
+                                    onSignInTapped: { path.removeAll() }
+                                )
                             }
                         }
                 }
@@ -32,6 +39,9 @@ struct AuthFlowView: View {
         }
         .task {
              authSession.restoreSession()
+        }
+        .onChange(of: authSession.state) {
+            path.removeAll()
         }
     }
 }

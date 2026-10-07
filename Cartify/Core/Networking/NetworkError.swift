@@ -12,6 +12,7 @@ enum NetworkError: Error, LocalizedError {
     case invalidURL
     case invalidResponse
     case serverError(statusCode: Int)
+    case apiError(statusCode: Int, message: String, code: String)
     case decoding(Error)
     case transport(Error)
     case missingAccessToken
@@ -30,6 +31,9 @@ extension NetworkError {
 
         case .serverError(let statusCode):
             return "Server error: \(statusCode)."
+
+        case .apiError(_, let message, _):
+            return message
 
         case .decoding(let error):
             return "Decoding error: \(error.localizedDescription)"

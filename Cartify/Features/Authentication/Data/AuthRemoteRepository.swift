@@ -8,8 +8,6 @@
 import Foundation
 
 final class AuthRemoteRepository: AuthRepository {
-  
-    
     private let apiClient: APIClient
     private let tokenStorage: TokenStorage
     
@@ -28,11 +26,24 @@ final class AuthRemoteRepository: AuthRepository {
         try tokenStorage.save(accessToken: response.data.accessToken, refreshToken: response.data.refreshToken)
         return response.data
     }
-    func refreshToken(refreshToken: String) async throws -> AuthData {
-        let response: APIResponse<AuthData> =  try await apiClient.send(endPoint: AuthEndpoint.refreshToken(refreshToken))
+    func refreshToken(refreshToken: String) async throws -> RefreshTokenData {
+        let response: APIResponse<RefreshTokenData> =  try await apiClient.send(endPoint: AuthEndpoint.refreshToken(refreshToken))
         try tokenStorage.save(accessToken: response.data.accessToken, refreshToken: response.data.refreshToken)
         return response.data
     }
+    func forgotPassword(request: ForgotPasswordRequest) async throws -> APIMessageResponse {
+        let response:APIMessageResponse =  try await apiClient.send(endPoint: AuthEndpoint.forgotPassword(request))
+        return response
+    }
     
+    func resetPassword(request: ResetPasswordRequest) async throws -> APIMessageResponse {
+        let response:APIMessageResponse = try await apiClient.send(endPoint: AuthEndpoint.resetPassword(request))
+        return response
+    }
+    func logout() async throws {
+        let _: APIMessageResponse = try await apiClient.send(
+            endPoint: AuthEndpoint.logout
+        )
+    }
     
 }

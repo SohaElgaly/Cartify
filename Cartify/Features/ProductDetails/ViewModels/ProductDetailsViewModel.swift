@@ -18,10 +18,16 @@ final class ProductDetailsViewModel {
     init(repository: ProductRepository) {
         self.repository = repository
     }
-
     func fetchProductDetails(id: String) async {
+        guard !isLoading else { return }
+
+        errorMessage = nil
         isLoading = true
-        defer { isLoading = false }
+
+        defer {
+            isLoading = false
+        }
+
         do {
             product = try await repository.fetchProductDetails(id: id)
         } catch {
