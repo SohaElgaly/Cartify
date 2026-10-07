@@ -33,7 +33,7 @@ struct ProductDetails: View {
 
                         PrimaryButton(
                             title: "Add to Cart",
-                            isEnabled: product.stock! > 0
+                            isEnabled: (product.stock ?? 0) > 0
                         ) {
                             // Add to cart later
                         }
@@ -48,7 +48,9 @@ struct ProductDetails: View {
                     message: errorMessage,
                     buttonTitle: "Try Again"
                 ) {
-                    // Retry later
+                    Task {
+                        await viewModel.fetchProductDetails(id: productID)
+                    }
                 }
 
             } else {
@@ -58,7 +60,9 @@ struct ProductDetails: View {
                     message: "Product not found",
                     buttonTitle: "Try Again"
                 ) {
-                    // Retry later
+                    Task {
+                        await viewModel.fetchProductDetails(id: productID)
+                    }
                 }
             }
         }
@@ -123,59 +127,55 @@ private extension ProductDetails {
                 .font(AppFonts.headline)
                 .foregroundStyle(AppColors.textPrimary)
 
-            Text(product.description!)
+            Text(product.description ?? "No description available.")
                 .font(AppFonts.body)
                 .foregroundStyle(AppColors.textSecondary)
         }
     }
 
+    @ViewBuilder
     func variantsSection(product: Product) -> some View {
-        VStack(
-            alignment: .leading,
-            spacing: AppSpacing.small
-        ) {
+        if let variants = product.variants, !variants.isEmpty {
+            VStack(
+                alignment: .leading,
+                spacing: AppSpacing.small
+            ) {
+                Text("Variants")
+                    .font(AppFonts.headline)
+                    .foregroundStyle(AppColors.textPrimary)
 
-            Text("Variants")
-                .font(AppFonts.headline)
-                .foregroundStyle(AppColors.textPrimary)
-
-            ForEach(
-                product.variants!,
-                id: \.self
-            ) { variant in
-
-                Text(
-                    "\(variant.size) - \(variant.color)"
-                )
-                .font(AppFonts.body)
-                .foregroundStyle(AppColors.textSecondary)
+                ForEach(variants, id: \.self) { variant in
+                    Text("\(variant.size) - \(variant.color)")
+                        .font(AppFonts.body)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
             }
         }
     }
 
+    @ViewBuilder
     func stockSection(product: Product) -> some View {
-        HStack(
-            spacing: AppSpacing.xs
-        ) {
+        if let stock = product.stock {
+            HStack(spacing: AppSpacing.xs) {
+                Image(
+                    systemName: stock > 0
+                        ? "checkmark.circle.fill"
+                        : "xmark.circle.fill"
+                )
+                .foregroundStyle(
+                    stock > 0
+                        ? AppColors.success
+                        : AppColors.error
+                )
 
-            Image(
-                systemName: product.stock! > 0
-                    ? "checkmark.circle.fill"
-                    : "xmark.circle.fill"
-            )
-            .foregroundStyle(
-                product.stock! > 0
-                    ? AppColors.success
-                    : AppColors.error
-            )
-
-            Text(
-                product.stock! > 0
-                    ? "In Stock"
-                    : "Out of Stock"
-            )
-            .font(AppFonts.body)
-            .foregroundStyle(AppColors.textSecondary)
+                Text(stock > 0 ? "In Stock" : "Out of Stock")
+                    .font(AppFonts.body)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
+        } else {
+            Text("Availability unavailable")
+                .font(AppFonts.body)
+                .foregroundStyle(AppColors.textSecondary)
         }
     }
 }

@@ -47,72 +47,89 @@ final class APIClient {
             throw NetworkError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            print("🚨 HTTP STATUS:", httpResponse.statusCode)
 
+            if let responseBody = String(data: data, encoding: .utf8) {
+                print("🚨 RESPONSE BODY:", responseBody)
+            }
             if httpResponse.statusCode == 401,
                endPoint.requiresAuthentication, !hasRetried {
 
                 if let apiError = try? decoder.decode(APIError.self, from: data),
-                   apiError.error.code == "TOKEN_EXPIRED" {
+                   apiError.errorCode == "TOKEN_EXPIRED" {
+                    print("🔄 Access token expired")
+                    print("🔄 Trying to refresh access token...")
                     do {
                         try await refreshAccessToken()
-                        
-                        return try await send(endPoint: endPoint,hasRetried: true)
                     } catch {
-                        try? authSession.logout()
+                        print("❌ Refresh failed:", error)
+
+                        if shouldEndSession(afterRefreshError: error) {
+                           try authSession.invalidateSession()
+                        }
+
                         throw error
                     }
+
+                    print("✅ Access token refreshed")
+                    print("🔁 Retrying original request...")
+
+                    return try await send(
+                        endPoint: endPoint,
+                        hasRetried: true
+                    )
                 }
             }
 
+            if let apiError = try? decoder.decode(APIError.self, from: data) {
+                if httpResponse.statusCode == 401,
+                   endPoint.requiresAuthentication,
+                   apiError.errorCode == "USER_NOT_FOUND" {
+                    try authSession.invalidateSession()
+                }
+
+                throw NetworkError.apiError(
+                    statusCode: httpResponse.statusCode,
+                    message: apiError.message,
+                    code: apiError.errorCode
+                )
+            }
             throw NetworkError.serverError(statusCode: httpResponse.statusCode)
         }
         
             do {
                 return try decoder.decode(T.self, from: data)
-                
             } catch  {
                 throw NetworkError.decoding(error)
             }
             
         }
-        
+    private func shouldEndSession(afterRefreshError error: Error) -> Bool {
+        guard let networkError = error as? NetworkError else {
+            return false
+        }
+
+        switch networkError {
+        case .missingRefreshToken:
+            return true
+
+        case .apiError(let statusCode, _, let code):
+            return statusCode == 401 &&
+                ["TOKEN_EXPIRED", "INVALID_TOKEN", "USER_NOT_FOUND"]
+                    .contains(code)
+
+        default:
+            return false
+        }
+    }
     private func refreshAccessToken() async throws {
-        
         
         guard let refreshToken = try tokenStorage.getRefreshToken() else {
             throw NetworkError.missingRefreshToken
         }
         
-        let data: Data
-        let response: URLResponse
-        let endpoint = AuthEndpoint.refreshToken(refreshToken)
-        let url = baseURL.appendingPathComponent(endpoint.path)
+        let response: APIResponse<RefreshTokenData> =  try await send(endPoint: AuthEndpoint.refreshToken(refreshToken))
         
-        var request = URLRequest(url: url)
-        request.httpMethod = endpoint.method.rawValue
-        request.allHTTPHeaderFields = endpoint.headers
-        request.httpBody = endpoint.body
-        
-        do {
-            (data,response) = try await session.data(for: request)
-        } catch  {
-            throw NetworkError.transport(error)
-        }
-        
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw NetworkError.invalidResponse
-        }
-        guard (200...299).contains(httpResponse.statusCode) else {
-               throw NetworkError.serverError(
-                   statusCode: httpResponse.statusCode
-               )
-           }
-        
-        do {
-            let apiResponse = try decoder.decode(APIResponse<AuthData>.self, from: data)
-            try tokenStorage.save(accessToken: apiResponse.data.accessToken, refreshToken: apiResponse.data.refreshToken)
-        } catch  {
-            throw NetworkError.decoding(error)
-        }
+        try tokenStorage.save(accessToken: response.data.accessToken, refreshToken: response.data.refreshToken)
     }
 }

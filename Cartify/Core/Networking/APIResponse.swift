@@ -15,9 +15,14 @@ struct APIResponse<T: Decodable>: Decodable {
 struct APIError: Decodable {
     let success: Bool
     let message: String
-    let error: ErrorDetail
+    let errorCode: String
 }
 
 struct ErrorDetail: Decodable {
     let code: String
+}
+
+struct APIMessageResponse: Decodable {
+    let success: Bool
+    let message: String
 }

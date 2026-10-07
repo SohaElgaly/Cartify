@@ -10,14 +10,15 @@ import SwiftUI
 struct HomeView: View {
     
     @State private var viewModel: HomeViewModel
-    
+    @State private var logoutVM: LogoutViewModel
     private let columns = [
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
     
-    init(viewModel: HomeViewModel) {
+    init(viewModel: HomeViewModel, logoutVM: LogoutViewModel) {
         _viewModel = State(initialValue: viewModel)
+        _logoutVM = State(initialValue: logoutVM)
     }
     
     var body: some View {
@@ -42,6 +43,26 @@ struct HomeView: View {
                                     set: { viewModel.searchText = $0 }
                                 )
                             )
+                            Button {
+                                Task {
+                                    await logoutVM.logout()
+                                }
+                            } label: {
+                                HStack {
+                                    if logoutVM.isLoading {
+                                        ProgressView()
+                                    }
+
+                                    Text(logoutVM.isLoading ? "Logging out…" : "Logout")
+                                }
+                            }
+                            .disabled(logoutVM.isLoading)
+
+                            if let errorMessage = logoutVM.errorMessage {
+                                Text(errorMessage)
+                                    .foregroundStyle(AppColors.error)
+                            }
+
                             
                             // Coupon
                             CouponBanner(
@@ -98,9 +119,10 @@ struct HomeView: View {
             }
             .navigationBarBackButtonHidden()
         }
+       
     }
 }
 
 #Preview {
-    HomeView(viewModel: AppContainer.shared.makeHomeViewModel())
+    HomeView(viewModel: AppContainer.shared.makeHomeViewModel(), logoutVM: AppContainer.shared.makeLogoutViewModel())
 }

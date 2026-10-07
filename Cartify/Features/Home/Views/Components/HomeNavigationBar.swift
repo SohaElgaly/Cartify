@@ -8,8 +8,10 @@
 import SwiftUI
 
 struct HomeNavigationBar: View {
+    
     let username: String
     var notificationsCount: Int = 0
+   
 
     var body: some View {
         HStack(alignment: .center, spacing: AppSpacing.medium) {

@@ -47,22 +47,30 @@ struct LoginView: View {
                         .accessibilityLabel("Email address")
                     
                     // Password
-                    SecureField("Password", text: $viewModel.password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled(true)
-                        .padding(.horizontal, AppSpacing.medium)
-                        .frame(height: 48)
-                        .background(
-                            AppColors.cardBackground
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: AppCornerRadius.medium)
-                                        .stroke(AppColors.border, lineWidth: 1)
-                                )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium, style: .continuous))
-                        .tint(AppColors.primary)
-                        .foregroundStyle(AppColors.textPrimary)
-                        .accessibilityLabel("Password")
+                    VStack(alignment: .leading,spacing: 10)  {
+                        SecureField("Password", text: $viewModel.password)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled(true)
+                            .padding(.horizontal, AppSpacing.medium)
+                            .frame(height: 48)
+                            .background(
+                                AppColors.cardBackground
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: AppCornerRadius.medium)
+                                            .stroke(AppColors.border, lineWidth: 1)
+                                    )
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium, style: .continuous))
+                            .tint(AppColors.primary)
+                            .foregroundStyle(AppColors.textPrimary)
+                            .accessibilityLabel("Password")
+                        
+                        //-FROGOT PASSWORD
+                        NavigationLink("Forgot Password?", value: AuthRoute.forgotPassword)
+                            .font(AppFonts.caption)
+                            .foregroundStyle(AppColors.primary)
+                            .padding(.horizontal)
+                    }
                 }
                 
                 // Error message
@@ -120,6 +128,7 @@ struct LoginView: View {
             .background(AppColors.background.ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
+        
         }
 }
 

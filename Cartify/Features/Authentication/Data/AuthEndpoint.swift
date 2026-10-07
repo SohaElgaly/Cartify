@@ -12,6 +12,8 @@ enum AuthEndpoint: EndPoint {
     case register(RegisterRequest)
     case logout
     case refreshToken(String)
+    case forgotPassword(ForgotPasswordRequest)
+    case resetPassword(ResetPasswordRequest)
     var path: String {
         switch self {
         case .login:
@@ -22,6 +24,10 @@ enum AuthEndpoint: EndPoint {
              "api/auth/logout"
         case .refreshToken:
              "api/auth/refresh-token"
+        case .forgotPassword:
+            "api/auth/forgot-password"
+        case .resetPassword:
+            "api/auth/reset-password"
         }
     }
     
@@ -35,7 +41,7 @@ enum AuthEndpoint: EndPoint {
     }
     var requiresAuthentication: Bool {
         switch self {
-        case .login, .register, .refreshToken:
+        case .login, .register, .refreshToken,.forgotPassword,.resetPassword:
             false
             
         case .logout:
@@ -53,6 +59,10 @@ enum AuthEndpoint: EndPoint {
             return nil
         case .refreshToken(let refreshToken):
             let request = RefreshTokenRequest(refreshToken: refreshToken)
+            return try? encoder.encode(request)
+        case .resetPassword(let resquest):
+            return try? encoder.encode(resquest)
+        case .forgotPassword(let request):
             return try? encoder.encode(request)
         }
     }

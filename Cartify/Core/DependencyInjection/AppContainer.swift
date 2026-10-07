@@ -40,7 +40,16 @@ final class AppContainer {
     func makeLoginViewModel() -> LoginViewModel {
         LoginViewModel(repository: authRepository, authSession: authSession)
     }
+    func makeForgotPasswordViewModel() -> ForgotPasswordViewModel {
+        ForgotPasswordViewModel(authRepository: authRepository)
+    }
+    func makeResetPasswordViewModel() -> ResetPasswordViewModel {
+        ResetPasswordViewModel(repository: authRepository)
+    }
     func makeRegisterViewModel() -> RegisterViewModel {
         RegisterViewModel(repository: authRepository, authSession: authSession)
+    }
+    func makeLogoutViewModel() -> LogoutViewModel {
+        LogoutViewModel(authRepository: authRepository,authSession: authSession)
     }
 }
