@@ -13,6 +13,7 @@ final class AppContainer {
     private let tokenStorage: TokenStorage
     let apiClient : APIClient
     let homeRepository : HomeRepository
+    let cartRepository: CartRepository
     let productRepository: ProductRepository
     let authRepository : AuthRepository
     let authSession : AuthSession
@@ -27,7 +28,7 @@ final class AppContainer {
         self.homeRepository = HomeRemoteRepository(apiClient: apiClient)
         self.productRepository = ProductRemoteRepository(apiClient: apiClient)
         self.authRepository = AuthRemoteRepository(apiClient: apiClient, tokenStorage: tokenStorage)
-      
+        self.cartRepository = CartRemoteRepository(apiClient: apiClient)
     }
    
     
@@ -51,5 +52,8 @@ final class AppContainer {
     }
     func makeLogoutViewModel() -> LogoutViewModel {
         LogoutViewModel(authRepository: authRepository,authSession: authSession)
+    }
+    func makeCartViewModel() -> CartViewModel {
+        CartViewModel(repository: cartRepository)
     }
 }

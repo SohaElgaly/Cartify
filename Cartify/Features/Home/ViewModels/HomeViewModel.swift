@@ -15,15 +15,23 @@ final class HomeViewModel {
     private(set) var categories: [Category] = []
     private(set) var banners: [Banner] = []
     private(set) var isLoading = false
+    private(set) var hasLoaded = false
     private(set) var errorMessage: String?
     private let repository: HomeRepository
     var searchText = ""
+    var selectedCategoryID: String?
+    var isFiltering: Bool {
+        selectedCategoryID != nil || !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     var filteredProducts: [Product] {
-        guard !searchText.isEmpty else {
-            return featuredProducts
-        }
-        return featuredProducts.filter {
-            $0.title.localizedCaseInsensitiveContains(searchText)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+        // Home only contains featured products and new arrivals, not the entire catalog.
+        return (featuredProducts + newArrivals).filter { product in
+            guard seen.insert(product.id).inserted else { return false }
+            let matchesCategory = selectedCategoryID == nil || product.categoryId.id == selectedCategoryID
+            let matchesSearch = query.isEmpty || product.title.localizedCaseInsensitiveContains(query)
+            return matchesCategory && matchesSearch
         }
     }
     
@@ -33,6 +41,8 @@ final class HomeViewModel {
     
    
     func loadHome() async {
+        guard !isLoading else { return }
+        errorMessage = nil
         isLoading = true
         defer {
             isLoading = false
@@ -43,7 +53,11 @@ final class HomeViewModel {
             categories = home.categories 
             newArrivals = home.newArrivals
             featuredProducts = home.featuredProducts
-            print(home)
+            hasLoaded = true
+            } catch is CancellationError {
+                return
+            } catch NetworkError.transport(let error) where (error as? URLError)?.code == .cancelled {
+                return
             } catch {
              
                 errorMessage = error.localizedDescription

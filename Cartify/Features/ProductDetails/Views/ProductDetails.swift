@@ -3,10 +3,12 @@ import SwiftUI
 struct ProductDetails: View {
 
     @State private var viewModel: ProductDetailsViewModel
+    private let cartViewModel: CartViewModel
     let productID: String
-    init(viewModel: ProductDetailsViewModel,productID: String) {
+    init(viewModel: ProductDetailsViewModel, productID: String, cartViewModel: CartViewModel) {
         _viewModel = State(initialValue: viewModel)
         self.productID = productID
+        self.cartViewModel = cartViewModel
     }
 
     var body: some View {
@@ -31,12 +33,7 @@ struct ProductDetails: View {
 
                         stockSection(product: product)
 
-                        PrimaryButton(
-                            title: "Add to Cart",
-                            isEnabled: (product.stock ?? 0) > 0
-                        ) {
-                            // Add to cart later
-                        }
+                        cartSection(product)
                     }
                     .padding(AppSpacing.medium)
                 }
@@ -70,13 +67,46 @@ struct ProductDetails: View {
                 await viewModel.fetchProductDetails(id: productID)
         }
         .background(AppColors.background)
+        .task {
+            if cartViewModel.cart == nil { await cartViewModel.fetchCart() }
+        }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
     }
 }
 
 // MARK: - Sections
 
 private extension ProductDetails {
+
+    func cartSection(_ product: Product) -> some View {
+        VStack(alignment: .leading, spacing: AppSpacing.small) {
+            if cartViewModel.isUpdating || cartViewModel.isLoading {
+                ProgressView("Updating cart…")
+            }
+            if let error = cartViewModel.errorMessage {
+                Text(error).font(AppFonts.caption).foregroundStyle(AppColors.error)
+                Button("Refresh cart") {
+                    Task { await cartViewModel.fetchCart() }
+                }
+                .disabled(cartViewModel.isUpdating || cartViewModel.isLoading)
+            } else if let error = cartViewModel.actionErrorMessage {
+                Text(error).font(AppFonts.caption).foregroundStyle(AppColors.error)
+            }
+
+            Text("In your cart: \(cartViewModel.quantity(for: product.id))")
+                .font(AppFonts.caption)
+                .foregroundStyle(AppColors.textSecondary)
+
+            PrimaryButton(
+                title: cartViewModel.quantity(for: product.id) > 0 ? "Add one more" : "Add to Cart",
+                isEnabled: cartViewModel.canChangeCart &&
+                    cartViewModel.quantity(for: product.id) < (cartViewModel.stock(for: product) ?? 0)
+            ) {
+                Task { await cartViewModel.addItem(productId: product.id) }
+            }
+        }
+    }
 
     func imageSection(product: Product) -> some View {
         NetworkImage(
@@ -97,9 +127,11 @@ private extension ProductDetails {
             spacing: AppSpacing.small
         ) {
 
-            Text(product.brand)
-                .font(AppFonts.body)
-                .foregroundStyle(AppColors.textSecondary)
+            if let brand = product.brand, !brand.isEmpty {
+                Text(brand)
+                    .font(AppFonts.body)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
 
             Text(product.title)
                 .font(AppFonts.title)
@@ -183,6 +215,7 @@ private extension ProductDetails {
 #Preview {
     ProductDetails(
         viewModel: AppContainer.shared
-            .makeProductDetailsViewModel(), productID: "6a64d5f6261b104aebdacb0c"
+            .makeProductDetailsViewModel(), productID: "6a64d5f6261b104aebdacb0c",
+        cartViewModel: CartViewModel(repository: CartPreviewRepository(cart: CartResponse(items: [], total: 0)))
     )
 }

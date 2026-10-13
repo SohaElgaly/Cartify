@@ -20,7 +20,7 @@ struct Product: Decodable, Identifiable {
     let rating: Double
     let reviewCount: Int
 
-    let brand: String
+    let brand: String?
 
     let categoryId: ProductCategory
 
