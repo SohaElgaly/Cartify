@@ -39,7 +39,7 @@ private extension ProductCard {
 
     var imageSection: some View {
         NetworkImage(
-            url: nil,
+            url: product.images?.first.flatMap(URL.init(string:))
         )
         .frame(height: 140)
         .frame(maxWidth: .infinity)
@@ -60,13 +60,15 @@ private extension ProductCard {
                 .foregroundStyle(AppColors.textPrimary)
                 
 
-            Text(product.brand)
-                .font(AppFonts.body)
-                .foregroundStyle(AppColors.textSecondary)
+            if let brand = product.brand, !brand.isEmpty {
+                Text(brand)
+                    .font(AppFonts.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+            }
 
             RatingView(rating: product.rating)
 
-            PriceView(price: product.price)
+            PriceView(price: product.price, discountedPrice: product.discountPrice)
         }
         .padding(.horizontal, AppSpacing.medium)
         .padding(.bottom, AppSpacing.medium)

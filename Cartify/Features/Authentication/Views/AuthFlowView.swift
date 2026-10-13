@@ -13,7 +13,7 @@ struct AuthFlowView: View {
     var body: some View {
         Group {
             if authSession.state == .authenticated {
-                HomeView(viewModel: AppContainer.shared.makeHomeViewModel(), logoutVM: AppContainer.shared.makeLogoutViewModel())
+                MainTabView(container: AppContainer.shared)
             } else {
                 NavigationStack(path: $path) {
                     LoginView(viewModel: AppContainer.shared.makeLoginViewModel(), onRegisterTapped: {path.append(.register)})
