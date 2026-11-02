@@ -4,10 +4,16 @@ struct CartView: View {
     @State private var viewModel: CartViewModel
     @Environment(\.dismiss) private var dismiss
     private let onContinueShopping: (() -> Void)?
+    private let container: AppContainer?
+    @State private var checkoutSession: CheckoutViewModel?
+    @State private var checkoutCart: CartResponse?
+    @State private var checkoutAddresses: AddressesViewModel?
+    @State private var showingCheckout = false
 
-    init(viewModel: CartViewModel, onContinueShopping: (() -> Void)? = nil) {
+    init(viewModel: CartViewModel, onContinueShopping: (() -> Void)? = nil, container: AppContainer? = nil) {
         _viewModel = State(initialValue: viewModel)
         self.onContinueShopping = onContinueShopping
+        self.container = container
     }
 
     var body: some View {
@@ -49,6 +55,56 @@ struct CartView: View {
         .navigationTitle("My Cart")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.fetchCart() }
+        .fullScreenCover(isPresented: $showingCheckout) {
+            if let container, let checkoutSession, let checkoutCart, let checkoutAddresses {
+                NavigationStack {
+                    CheckoutView(
+                        viewModel: checkoutSession,
+                        addressesViewModel: checkoutAddresses,
+                        cart: checkoutCart,
+                        makeAddressForm: { container.makeAddressFormViewModel(address: $0) },
+                        onPaymentSucceeded: {
+                            await viewModel.fetchCart()
+                            viewModel.isCheckingOut = false
+                        }
+                    )
+                }
+            }
+        }
+        .onChange(of: showingCheckout) { _, isPresented in
+            if !isPresented, let session = checkoutSession,
+               session.isFinished || (session.createdOrder == nil && !session.needsOrderVerification) {
+                checkoutSession = nil
+                checkoutCart = nil
+                checkoutAddresses = nil
+                viewModel.isCheckingOut = false
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let container {
+                if let session = checkoutSession, !session.isFinished {
+                    checkoutButton("Resume Checkout") { showingCheckout = true }
+                } else if let cart = viewModel.cart, !cart.items.isEmpty {
+                    checkoutButton("Checkout") {
+                        checkoutCart = cart
+                        checkoutSession = container.makeCheckoutViewModel()
+                        checkoutAddresses = container.makeAddressesViewModel()
+                        viewModel.isCheckingOut = true
+                        showingCheckout = true
+                    }
+                    .disabled(!viewModel.canChangeCart || cart.items.contains { $0.quantity > $0.stock })
+                }
+            }
+        }
+    }
+
+    private func checkoutButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.borderedProminent)
+            .tint(AppColors.primary)
+            .frame(maxWidth: .infinity)
+            .padding(AppSpacing.medium)
+            .background(AppColors.background)
     }
 
     private func cartContent(_ cart: CartResponse) -> some View {
@@ -105,6 +161,7 @@ struct CartView: View {
                     .font(AppFonts.caption)
                     .foregroundStyle(AppColors.textSecondary)
                 quantityControls(item)
+                    .disabled(checkoutSession != nil)
 
                 Button(role: .destructive) {
                     Task {
@@ -117,7 +174,7 @@ struct CartView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(AppColors.error)
-                .disabled(viewModel.isUpdating || viewModel.isLoading)
+                .disabled(viewModel.isUpdating || viewModel.isLoading || checkoutSession != nil)
                 .accessibilityLabel("Remove \(item.title) from cart")
 
                 Text("Subtotal")

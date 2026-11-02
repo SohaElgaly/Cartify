@@ -16,7 +16,7 @@ final class APIClient {
     init(session: URLSession,tokenStorage: TokenStorage,authSession:AuthSession) {
         self.session = session
         self.decoder = JSONDecoder()
-        self.baseURL = URL(string: "https://cartify-backend-production-c8f2.up.railway.app")!
+        self.baseURL = URL(string: "https://cartify-backend-production-8102.up.railway.app")!
         self.tokenStorage = tokenStorage
         self.authSession = authSession
     }

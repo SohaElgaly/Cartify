@@ -32,9 +32,57 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.medium) {
                     Text("Your account").font(AppFonts.headline)
                     VStack(spacing: 0) {
-                        upcomingRow("My orders", subtitle: "Track your purchases", icon: "shippingbox")
+                        NavigationLink {
+                            OrdersView(viewModel: AppContainer.shared.makeOrdersViewModel())
+                        } label: {
+                            HStack(spacing: AppSpacing.medium) {
+                                Image(systemName: "shippingbox")
+                                    .foregroundStyle(AppColors.primary)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                    Text("My orders").font(AppFonts.bodyMedium)
+                                    Text("View your purchases")
+                                        .font(AppFonts.footnote)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right").font(.caption)
+                            }
+                            .foregroundStyle(AppColors.textPrimary)
+                            .padding(AppSpacing.medium)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(logoutViewModel.isLoading)
                         Divider().padding(.leading, 60)
-                        upcomingRow("Addresses", subtitle: "Manage delivery locations", icon: "mappin.and.ellipse")
+                        NavigationLink {
+                            AddressesView(
+                                viewModel: AppContainer.shared.makeAddressesViewModel(),
+                                makeFormViewModel: { address in
+                                    AppContainer.shared.makeAddressFormViewModel(address: address)
+                                }
+                            )
+                        } label: {
+                            HStack(spacing: AppSpacing.medium) {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .font(.title3)
+                                    .foregroundStyle(AppColors.primary)
+                                    .frame(width: 28)
+                                VStack(alignment: .leading, spacing: AppSpacing.xs) {
+                                    Text("Addresses").font(AppFonts.bodyMedium)
+                                    Text("Manage delivery locations")
+                                        .font(AppFonts.footnote)
+                                        .foregroundStyle(AppColors.textSecondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(AppColors.textSecondary)
+                            }
+                            .foregroundStyle(AppColors.textPrimary)
+                            .padding(AppSpacing.medium)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(logoutViewModel.isLoading)
                         Divider().padding(.leading, 60)
                         upcomingRow("Settings", subtitle: "Your app preferences", icon: "gearshape")
                     }

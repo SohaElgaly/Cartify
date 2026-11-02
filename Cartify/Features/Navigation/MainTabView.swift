@@ -30,7 +30,8 @@ struct MainTabView: View {
             NavigationStack {
                 CartView(
                     viewModel: cartViewModel,
-                    onContinueShopping: { selectedTab = .home }
+                    onContinueShopping: { selectedTab = .home },
+                    container: container
                 )
             }
             .tabItem { Label("Cart", systemImage: "cart") }
@@ -43,5 +44,8 @@ struct MainTabView: View {
             .tag(Tab.profile)
         }
         .tint(AppColors.primary)
+        .onReceive(NotificationCenter.default.publisher(for: .orderPaymentCompleted)) { _ in
+            Task { await cartViewModel.fetchCart() }
+        }
     }
 }

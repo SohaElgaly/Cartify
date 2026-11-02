@@ -11,9 +11,10 @@ final class CartViewModel {
     private(set) var isUpdating = false
     private(set) var updatingProductID: String?
     private(set) var actionErrorMessage: String?
+    var isCheckingOut = false
 
     var canChangeCart: Bool {
-        cart != nil && !isLoading && !isUpdating && errorMessage == nil
+        cart != nil && !isLoading && !isUpdating && !isCheckingOut && errorMessage == nil
     }
 
     init(repository: CartRepository) {
