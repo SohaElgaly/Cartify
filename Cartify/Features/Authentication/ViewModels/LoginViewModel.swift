@@ -29,9 +29,7 @@ final class LoginViewModel {
         defer { isLoading = false }
         do {
             let authData = try await repository.login(request: LoginRequest(email: email, password: password))
-           let user = authData.user
-            authSession.authenticate()
-            print("Logged in user: \(user)")
+            try authSession.authenticate(user: authData.user)
         } catch {
             errorMessage = error.localizedDescription
         }

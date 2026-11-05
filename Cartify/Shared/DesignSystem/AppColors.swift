@@ -5,14 +5,13 @@
 //  Created by Soha Elgaly on 25/07/2026.
 //
 
-import Foundation
-import SwiftUI
 import SwiftUI
 
 enum AppColors {
 
     // MARK: - Brand
 
+    static let action = Color("Action")
     static let primary = Color("Primary")
     static let primaryDark = Color("PrimaryDark")
     static let primaryLight = Color("PrimaryLight")

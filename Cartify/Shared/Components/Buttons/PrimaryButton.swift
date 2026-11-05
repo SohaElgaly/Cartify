@@ -15,11 +15,11 @@ struct PrimaryButton: View {
     var action: () -> Void
 
     private enum Metrics {
-        static let height: CGFloat = 48
+        static let height: CGFloat = 54
     }
 
     private var backgroundColor: Color {
-        (isEnabled && !isLoading) ? AppColors.primary : AppColors.primary.opacity(0.5)
+        (isEnabled && !isLoading) ? AppColors.action : AppColors.action.opacity(0.5)
     }
 
     var body: some View {
@@ -38,7 +38,8 @@ struct PrimaryButton: View {
             .font(AppFonts.bodyMedium)
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
-            .frame(height: Metrics.height)
+            .padding(.vertical, 14)
+            .frame(minHeight: Metrics.height)
             .background(backgroundColor)
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium, style: .continuous))
             .accessibilityLabel(title)

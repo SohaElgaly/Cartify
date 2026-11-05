@@ -10,23 +10,21 @@ struct ResetPasswordView: View {
     }
 
     var body: some View {
-        ScrollView {
+        AuthLayout(title: "A fresh start", subtitle: "Enter your reset code and choose a new password.") {
             VStack(alignment: .leading, spacing: AppSpacing.large) {
-                Text("Reset password")
-                    .font(AppFonts.title)
 
                 if let message = viewModel.successMessage {
                     Text(message)
                         .foregroundStyle(AppColors.success)
                 } else {
-                    Text("Copy the full reset code from your email and paste it below. The code expires after 15 minutes.")
+                    Text("Your email code is valid for 15 minutes.")
                         .foregroundStyle(AppColors.textSecondary)
 
                     TextField("Reset code from email", text: $viewModel.token)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .padding(.horizontal, AppSpacing.medium)
-                        .frame(height: 48)
+                        .frame(minHeight: 54)
                         .background(AppColors.cardBackground)
                         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
                         .overlay {
@@ -60,8 +58,8 @@ struct ResetPasswordView: View {
                         .font(AppFonts.bodyMedium)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(AppColors.primary)
+                        .frame(minHeight: 54)
+                        .background(AppColors.action)
                         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
                     }
                     .disabled(
@@ -78,7 +76,7 @@ struct ResetPasswordView: View {
             }
             .font(AppFonts.body)
             .foregroundStyle(AppColors.textPrimary)
-            .padding(AppSpacing.large)
+
         }
         .background(AppColors.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -91,7 +89,7 @@ struct ResetPasswordView: View {
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
             .padding(.horizontal, AppSpacing.medium)
-            .frame(height: 48)
+            .frame(minHeight: 54)
             .background(AppColors.cardBackground)
             .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
             .overlay {

@@ -10,6 +10,7 @@ import SwiftUI
 struct ProductCard: View {
 
     let product: Product
+    var showsPrice = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppSpacing.small) {
@@ -24,12 +25,7 @@ struct ProductCard: View {
                 cornerRadius: AppCornerRadius.medium
             )
         )
-        .overlay {
-            RoundedRectangle(
-                cornerRadius: AppCornerRadius.medium
-            )
-            .stroke(AppColors.border, lineWidth: 1)
-        }
+
     }
 }
 
@@ -38,16 +34,17 @@ struct ProductCard: View {
 private extension ProductCard {
 
     var imageSection: some View {
-        NetworkImage(
-            url: product.images?.first.flatMap(URL.init(string:))
-        )
-        .frame(height: 140)
-        .frame(maxWidth: .infinity)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: AppCornerRadius.medium
-            )
-        )
+        Color.white
+            .frame(height: 170)
+            .overlay {
+                NetworkImage(
+                    url: product.images?.first.flatMap(URL.init(string:)),
+                    contentMode: .fit
+                )
+                .padding(12)
+            }
+            .clipped()
+            .accessibilityHidden(true)
     }
 
     var informationSection: some View {
@@ -55,8 +52,8 @@ private extension ProductCard {
                spacing: AppSpacing.xs) {
 
             Text(product.title)
-                .font(AppFonts.headline)
-                .lineLimit(2)
+                .font(AppFonts.bodyMedium)
+                .lineLimit(2, reservesSpace: true)
                 .foregroundStyle(AppColors.textPrimary)
                 
 
@@ -66,12 +63,16 @@ private extension ProductCard {
                     .foregroundStyle(AppColors.textSecondary)
             }
 
-            RatingView(rating: product.rating)
+            if product.rating > 0 {
+                RatingView(rating: product.rating)
+            }
 
-            PriceView(price: product.price, discountedPrice: product.discountPrice)
+            if showsPrice {
+                PriceView(price: product.price, discountedPrice: product.discountPrice)
+            }
         }
         .padding(.horizontal, AppSpacing.medium)
-        .padding(.bottom, AppSpacing.medium)
+        .padding(.bottom, showsPrice ? AppSpacing.medium : AppSpacing.xs)
     }
 }
 

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct HomeView: View {
     @State private var viewModel: HomeViewModel
+    @State private var recentlyAdded: Set<String> = []
+    @State private var showingCartNotice = false
+    @State private var cartNotice = ""
     private let cartViewModel: CartViewModel
     let onCartTapped: () -> Void
     let onProfileTapped: () -> Void
@@ -20,26 +23,29 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: AppSpacing.large) {
                     header
                     HomeSearchBar(searchText: $viewModel.searchText)
-
-                    if !viewModel.isFiltering {
-                        hero {
-                            withAnimation { proxy.scrollTo("products", anchor: .top) }
-                        }
-                    }
+                    offerBanners
 
                     categoryFilters
-                    cartStatus
                     productContent
                         .id("products")
                 }
-                .padding(AppSpacing.medium)
+                .padding(AppSpacing.large)
                 .padding(.bottom, AppSpacing.medium)
             }
             .scrollDismissesKeyboard(.interactively)
-            .refreshable { await viewModel.loadHome() }
+            .refreshable {
+                await viewModel.loadHome()
+                await cartViewModel.fetchCart()
+            }
         }
         .background(AppColors.background)
         .toolbar(.hidden, for: .navigationBar)
+        .alert("Cart update", isPresented: $showingCartNotice) {
+            Button("Open cart", action: onCartTapped)
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(cartNotice)
+        }
         .task {
             if !viewModel.hasLoaded { await viewModel.loadHome() }
         }
@@ -49,65 +55,82 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: AppSpacing.xs) {
-                Text("CARTIFY")
-                    .font(AppFonts.captionMedium)
-                    .tracking(4)
-                    .foregroundStyle(AppColors.primary)
-                Text("Find your next favorite.")
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                let name = AppContainer.shared.authSession.currentUser?.firstName
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                Text(name.isEmpty ? "Welcome to Cartify" : "Welcome back, \(name)")
+                    .font(AppFonts.caption)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .lineLimit(1)
+                Text("Find your everyday favorites")
                     .font(AppFonts.title)
                     .foregroundStyle(AppColors.textPrimary)
             }
-            Spacer(minLength: AppSpacing.small)
+            Spacer(minLength: 0)
             Button(action: onProfileTapped) {
                 Image(systemName: "person.crop.circle")
-                    .font(.title)
-                    .frame(width: 48, height: 48)
-                    .background(AppColors.cardBackground, in: Circle())
+                    .font(.title2)
+                    .frame(width: 44, height: 44)
             }
             .tint(AppColors.textPrimary)
             .accessibilityLabel("Open profile")
         }
     }
 
-    private func hero(onExplore: @escaping () -> Void) -> some View {
-        VStack(alignment: .leading, spacing: AppSpacing.medium) {
-            HStack {
-                Label("THE EVERYDAY EDIT", systemImage: "sparkles")
-                    .font(AppFonts.footnote)
-                    .tracking(1.5)
-                Spacer()
-                Image(systemName: "bag")
-                    .font(.system(size: 32, weight: .light))
-                    .accessibilityHidden(true)
-            }
-            Text("Little finds.\nBig possibilities.")
-                .font(AppFonts.largeTitle)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("Discover something that fits your day.")
-                .font(AppFonts.caption)
-                .foregroundStyle(.white.opacity(0.85))
-            Button(action: onExplore) {
-                HStack {
-                    Text("Explore the edit")
-                    Image(systemName: "arrow.down")
+    @ViewBuilder
+    private var offerBanners: some View {
+        if !viewModel.banners.isEmpty && !viewModel.isFiltering {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(viewModel.banners) { banner in
+                        VStack(alignment: .leading, spacing: 10) {
+                            NetworkImage(url: URL(string: banner.image))
+                                .frame(height: 135)
+                                .clipped()
+                            if let title = banner.title, !title.isEmpty {
+                                Text(title)
+                                    .font(AppFonts.headline)
+                                    .padding(.horizontal, 16)
+                                    .padding(.bottom, 14)
+                            }
+                        }
+                        .frame(width: 285, alignment: .leading)
+                        .background(AppColors.primaryLight)
+                        .clipShape(RoundedRectangle(cornerRadius: 18))
+                    }
                 }
-                .font(AppFonts.captionMedium)
-                .padding(.horizontal, AppSpacing.medium)
-                .padding(.vertical, 12)
-                .foregroundStyle(AppColors.primaryDark)
-                .background(.white, in: Capsule())
             }
+            .accessibilityLabel("Offers")
+        } else if !viewModel.isFiltering, let product = (viewModel.featuredProducts + viewModel.newArrivals).first(where: {
+            guard let discounted = $0.discountPrice else { return false }
+            return discounted >= 0 && discounted < $0.price
+        }) {
+            NavigationLink {
+                ProductDetails(viewModel: AppContainer.shared.makeProductDetailsViewModel(), productID: product.id, cartViewModel: cartViewModel)
+            } label: {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("A GOOD FIND, FOR LESS")
+                            .font(AppFonts.footnote.weight(.semibold))
+                            .tracking(1)
+                        Text(product.title).font(AppFonts.title2).lineLimit(2)
+                        PriceView(price: product.price, discountedPrice: product.discountPrice)
+                        Label("Explore offer", systemImage: "arrow.right")
+                            .font(AppFonts.captionMedium)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "tag")
+                        .font(.system(size: 38, weight: .light))
+                        .accessibilityHidden(true)
+                }
+                .foregroundStyle(AppColors.textPrimary)
+                .padding(22)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(AppColors.primaryLight, in: RoundedRectangle(cornerRadius: 22))
+            }
+            .buttonStyle(.plain)
         }
-        .foregroundStyle(.white)
-        .padding(AppSpacing.large)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(colors: [AppColors.primaryDark, AppColors.primary],
-                           startPoint: .topLeading, endPoint: .bottomTrailing)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 24))
     }
 
     private var categoryFilters: some View {
@@ -134,7 +157,7 @@ struct HomeView: View {
                 .padding(.horizontal, AppSpacing.medium)
                 .frame(minHeight: 44)
                 .foregroundStyle(selected ? .white : AppColors.textPrimary)
-                .background(selected ? AppColors.primary : AppColors.cardBackground, in: Capsule())
+                .background(selected ? AppColors.action : AppColors.cardBackground, in: Capsule())
                 .overlay(Capsule().stroke(selected ? Color.clear : AppColors.border))
         }
         .buttonStyle(.plain)
@@ -189,22 +212,7 @@ struct HomeView: View {
                 }
                 .padding(.vertical, AppSpacing.large)
             }
-            Button(action: onCartTapped) {
-                HStack(spacing: AppSpacing.medium) {
-                    Image(systemName: "cart").font(.title2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Your shopping bag").font(AppFonts.bodyMedium)
-                        Text("Review your finds").font(AppFonts.caption)
-                    }
-                    Spacer()
-                    Image(systemName: "arrow.right")
-                }
-                .foregroundStyle(AppColors.textPrimary)
-                .padding(AppSpacing.medium)
-                .background(AppColors.primary.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large))
-            }
-            .buttonStyle(.plain)
+
         }
     }
 
@@ -223,106 +231,62 @@ struct HomeView: View {
     }
 
     private func productLink(_ product: Product) -> some View {
-        VStack(spacing: 0) {
-            // The quantity buttons are outside the link, so they don't open details.
+        let quantity = cartViewModel.quantity(for: product.id)
+        let stockLimitReached = cartViewModel.stock(for: product).map { quantity >= $0 } ?? false
+
+        return VStack(spacing: 0) {
             NavigationLink {
                 ProductDetails(viewModel: AppContainer.shared.makeProductDetailsViewModel(), productID: product.id, cartViewModel: cartViewModel)
             } label: {
-                ProductCard(product: product)
+                ProductCard(product: product, showsPrice: false)
             }
             .buttonStyle(.plain)
 
-            quickAddControls(product)
-                .padding(AppSpacing.small)
+            HStack(alignment: .center, spacing: 6) {
+                PriceView(price: product.price, discountedPrice: product.discountPrice)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    guard cartViewModel.canChangeCart else {
+                        cartNotice = "Your cart isn't available right now. Open Cart to try again. You can keep browsing products."
+                        showingCartNotice = true
+                        return
+                    }
+                    Task {
+                        await cartViewModel.addItem(productId: product.id)
+                        if cartViewModel.actionErrorMessage != nil {
+                            cartNotice = "We couldn't confirm this update. Check your cart before adding the item again."
+                            showingCartNotice = true
+                        } else if cartViewModel.quantity(for: product.id) > quantity {
+                            recentlyAdded.insert(product.id)
+                            try? await Task.sleep(for: .seconds(1))
+                            recentlyAdded.remove(product.id)
+                        }
+                    }
+                } label: {
+                    Group {
+                        if cartViewModel.updatingProductID == product.id {
+                            ProgressView()
+                        } else {
+                            Image(systemName: recentlyAdded.contains(product.id) ? "checkmark" : "cart.badge.plus")
+                                .font(.system(size: 18, weight: .medium))
+                        }
+                    }
+                    .frame(width: 36, height: 36)
+                    .background(AppColors.primaryLight, in: RoundedRectangle(cornerRadius: 10))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .tint(AppColors.primary)
+                .disabled(recentlyAdded.contains(product.id) || cartViewModel.isLoading || cartViewModel.isUpdating || cartViewModel.isCheckingOut || stockLimitReached)
+                .accessibilityLabel("Add \(product.title) to cart")
+                .accessibilityValue(quantity > 0 ? "\(quantity) already in cart" : "Not in cart")
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
         }
         .background(AppColors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
-    }
-
-    @ViewBuilder
-    private var cartStatus: some View {
-        if let error = cartViewModel.errorMessage {
-            VStack(alignment: .leading, spacing: AppSpacing.small) {
-                Text(error).font(AppFonts.caption).foregroundStyle(AppColors.error)
-                Button("Refresh cart") {
-                    Task { await cartViewModel.fetchCart() }
-                }
-                .disabled(cartViewModel.isLoading || cartViewModel.isUpdating)
-            }
-        } else if let message = cartViewModel.actionErrorMessage {
-            Text(message).font(AppFonts.caption).foregroundStyle(AppColors.error)
-        }
-    }
-
-    private func quickAddControls(_ product: Product) -> some View {
-        let quantity = cartViewModel.quantity(for: product.id)
-        let stock = cartViewModel.stock(for: product)
-        let busy = cartViewModel.updatingProductID == product.id
-
-        return Group {
-            if quantity == 0 {
-                Button {
-                    Task { await cartViewModel.addItem(productId: product.id) }
-                } label: {
-                    HStack(spacing: AppSpacing.xs) {
-                        if busy || cartViewModel.isLoading {
-                            ProgressView().tint(.white)
-                        } else {
-                            Image(systemName: "plus")
-                        }
-                        Text(stock == nil ? "Unavailable" : ((stock ?? 0) <= 0 ? "Out of stock" : "Quick add"))
-                            .font(AppFonts.captionMedium)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .foregroundStyle(.white)
-                    .background(AppColors.primary, in: RoundedRectangle(cornerRadius: AppCornerRadius.small))
-                }
-                .buttonStyle(.plain)
-                .disabled(!cartViewModel.canChangeCart || (stock ?? 0) <= 0)
-                .opacity(cartViewModel.canChangeCart && (stock ?? 0) > 0 ? 1 : 0.55)
-                .accessibilityLabel("Add \(product.title) to cart")
-            } else {
-                HStack(spacing: 0) {
-                    Button {
-                        Task {
-                            if quantity == 1 {
-                                await cartViewModel.removeItem(productId: product.id)
-                            } else {
-                                await cartViewModel.updateQuantity(productId: product.id, quantity: quantity - 1)
-                            }
-                        }
-                    } label: {
-                        Image(systemName: quantity == 1 ? "trash" : "minus")
-                            .frame(width: 44, height: 44)
-                    }
-                    .accessibilityLabel(quantity == 1 ? "Remove \(product.title) from cart" : "Decrease quantity of \(product.title)")
-
-                    Spacer(minLength: 0)
-                    if busy {
-                        ProgressView().accessibilityLabel("Updating quantity")
-                    } else {
-                        Text("\(quantity)")
-                            .font(AppFonts.bodyMedium).monospacedDigit()
-                            .accessibilityLabel("\(quantity) in cart")
-                    }
-                    Spacer(minLength: 0)
-
-                    Button {
-                        Task {
-                            await cartViewModel.updateQuantity(productId: product.id, quantity: quantity + 1)
-                        }
-                    } label: {
-                        Image(systemName: "plus").frame(width: 44, height: 44)
-                    }
-                    .disabled(quantity >= (stock ?? 0))
-                    .accessibilityLabel("Increase quantity of \(product.title)")
-                }
-                .buttonStyle(.borderless)
-                .tint(AppColors.primary)
-                .background(AppColors.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: AppCornerRadius.small))
-                .disabled(!cartViewModel.canChangeCart)
-            }
-        }
     }
 }
 

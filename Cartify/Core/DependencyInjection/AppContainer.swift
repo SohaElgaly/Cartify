@@ -14,9 +14,13 @@ final class AppContainer {
     let apiClient : APIClient
     let homeRepository : HomeRepository
     let cartRepository: CartRepository
+    let addressesRepository: AddressesRepository
+    let ordersRepository: OrdersRepository
+    let checkoutRepository: CheckoutRepository
     let productRepository: ProductRepository
     let authRepository : AuthRepository
     let authSession : AuthSession
+    
     init() {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = 30
@@ -29,6 +33,9 @@ final class AppContainer {
         self.productRepository = ProductRemoteRepository(apiClient: apiClient)
         self.authRepository = AuthRemoteRepository(apiClient: apiClient, tokenStorage: tokenStorage)
         self.cartRepository = CartRemoteRepository(apiClient: apiClient)
+        self.addressesRepository = AddressRemoteRepository(apiClient: apiClient)
+        self.checkoutRepository = CheckoutRemoteRepository(apiClient: apiClient)
+        self.ordersRepository = OrdersRemoteRepository(apiClient: apiClient)
     }
    
     
@@ -54,6 +61,24 @@ final class AppContainer {
         LogoutViewModel(authRepository: authRepository,authSession: authSession)
     }
     func makeCartViewModel() -> CartViewModel {
-        CartViewModel(repository: cartRepository)
+        CartViewModel(repository: cartRepository, productRepository: productRepository)
+    }
+    func makeAddressesViewModel() -> AddressesViewModel {
+        AddressesViewModel(repository: addressesRepository)
+    }
+    func makeCheckoutViewModel() -> CheckoutViewModel {
+        CheckoutViewModel(repository: checkoutRepository, ordersRepository: ordersRepository)
+    }
+    func makeAddressFormViewModel(address: Address? = nil) -> AddressFormViewModel {
+        AddressFormViewModel(repository: addressesRepository, address: address)
+    }
+    func makeOrdersViewModel() -> OrdersViewModel {
+        OrdersViewModel(repository: ordersRepository)
+    }
+    func makeProfileViewModel() -> ProfileViewModel {
+        ProfileViewModel(session: authSession)
+    }
+    func makeOrderDetailsViewModel(orderID: String) -> OrderDetailsViewModel {
+        OrderDetailsViewModel(orderID: orderID, ordersRepository: ordersRepository)
     }
 }

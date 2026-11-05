@@ -5,19 +5,23 @@ import Observation
 @MainActor
 final class CartViewModel {
     private let repository: CartRepository
+    private let productRepository: ProductRepository?
+    private var productImages: [String: [String]] = [:]
     private(set) var cart: CartResponse?
     private(set) var isLoading = false
     private(set) var errorMessage: String?
     private(set) var isUpdating = false
     private(set) var updatingProductID: String?
     private(set) var actionErrorMessage: String?
+    var isCheckingOut = false
 
     var canChangeCart: Bool {
-        cart != nil && !isLoading && !isUpdating && errorMessage == nil
+        cart != nil && !isLoading && !isUpdating && !isCheckingOut && errorMessage == nil
     }
 
-    init(repository: CartRepository) {
+    init(repository: CartRepository, productRepository: ProductRepository? = nil) {
         self.repository = repository
+        self.productRepository = productRepository
     }
 
     func quantity(for productID: String) -> Int {
@@ -84,7 +88,7 @@ final class CartViewModel {
         }
 
         do {
-            cart = try await operation()
+            cart = await resolvingImages(in: try await operation())
         } catch {
             let originalMessage = error.localizedDescription
             // A failed response doesn't prove the server rejected the change.
@@ -99,9 +103,33 @@ final class CartViewModel {
         }
     }
 
+    // Cart metadata can omit photos; fetch only missing images from the same product.
+    // Keep the server's quantities, stock and totals unchanged.
+    private func resolvingImages(in response: CartResponse) async -> CartResponse {
+        guard let productRepository else { return response }
+        var items: [CartItem] = []
+        for item in response.items {
+            if item.images.contains(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
+                items.append(item)
+                continue
+            }
+            var images = productImages[item.productId] ?? []
+            if images.isEmpty,
+               let product = try? await productRepository.fetchProductDetails(id: item.productId) {
+                images = product.images ?? []
+                productImages[item.productId] = images
+            }
+            items.append(CartItem(productId: item.productId, title: item.title,
+                                  price: item.price, discountPrice: item.discountPrice,
+                                  images: images, stock: item.stock, quantity: item.quantity,
+                                  subtotal: item.subtotal))
+        }
+        return CartResponse(items: items, total: response.total)
+    }
+
     private func loadCart() async throws -> CartResponse {
         do {
-            return try await repository.fetchCart()
+            return await resolvingImages(in: try await repository.fetchCart())
         } catch NetworkError.apiError(let status, _, let code)
             where status == 404 && code == "CART_NOT_FOUND" {
             return CartResponse(items: [], total: 0)

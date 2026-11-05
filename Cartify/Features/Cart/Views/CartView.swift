@@ -4,10 +4,17 @@ struct CartView: View {
     @State private var viewModel: CartViewModel
     @Environment(\.dismiss) private var dismiss
     private let onContinueShopping: (() -> Void)?
+    private let container: AppContainer?
+    @State private var checkoutSession: CheckoutViewModel?
+    @State private var checkoutCart: CartResponse?
+    @State private var checkoutAddresses: AddressesViewModel?
+    @State private var showingCheckout = false
+    @State private var returnHomeAfterCheckout = false
 
-    init(viewModel: CartViewModel, onContinueShopping: (() -> Void)? = nil) {
+    init(viewModel: CartViewModel, onContinueShopping: (() -> Void)? = nil, container: AppContainer? = nil) {
         _viewModel = State(initialValue: viewModel)
         self.onContinueShopping = onContinueShopping
+        self.container = container
     }
 
     var body: some View {
@@ -49,6 +56,73 @@ struct CartView: View {
         .navigationTitle("My Cart")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.fetchCart() }
+        .fullScreenCover(isPresented: $showingCheckout, onDismiss: {
+            // Change tabs after the checkout presentation has finished dismissing.
+            if returnHomeAfterCheckout {
+                returnHomeAfterCheckout = false
+                if let onContinueShopping { onContinueShopping() }
+                else { dismiss() }
+            }
+        }) {
+            if let container, let checkoutSession, let checkoutCart, let checkoutAddresses {
+                NavigationStack {
+                    CheckoutView(
+                        viewModel: checkoutSession,
+                        addressesViewModel: checkoutAddresses,
+                        cart: checkoutCart,
+                        makeAddressForm: { container.makeAddressFormViewModel(address: $0) },
+                        onPaymentSucceeded: {
+                            await viewModel.fetchCart()
+                            viewModel.isCheckingOut = false
+                        },
+                        onContinueShopping: {
+                            returnHomeAfterCheckout = true
+                            showingCheckout = false
+                        }
+                    )
+                }
+            }
+        }
+        .onChange(of: showingCheckout) { _, isPresented in
+            if !isPresented, let session = checkoutSession,
+               session.isFinished || (session.createdOrder == nil && !session.needsOrderVerification) {
+                checkoutSession = nil
+                checkoutCart = nil
+                checkoutAddresses = nil
+                viewModel.isCheckingOut = false
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let container {
+                if let session = checkoutSession, !session.isFinished {
+                    checkoutButton("Resume Checkout") { showingCheckout = true }
+                } else if let cart = viewModel.cart, !cart.items.isEmpty {
+                    checkoutButton("Checkout") {
+                        checkoutCart = cart
+                        checkoutSession = container.makeCheckoutViewModel()
+                        checkoutAddresses = container.makeAddressesViewModel()
+                        viewModel.isCheckingOut = true
+                        showingCheckout = true
+                    }
+                    .disabled(!viewModel.canChangeCart || cart.items.contains { $0.quantity > $0.stock })
+                }
+            }
+        }
+    }
+
+    private func checkoutButton(_ title: String, action: @escaping () -> Void) -> some View {
+        VStack(spacing: 14) {
+            if let cart = viewModel.cart {
+                HStack {
+                    Text("Total").font(AppFonts.headline)
+                    Spacer()
+                    PriceView(price: cart.total)
+                }
+            }
+            PrimaryButton(title: title, action: action)
+        }
+        .padding(20)
+        .background(AppColors.background)
     }
 
     private func cartContent(_ cart: CartResponse) -> some View {
@@ -72,17 +146,10 @@ struct CartView: View {
 
                 ForEach(cart.items) { item in
                     itemRow(item)
+                    if item.id != cart.items.last?.id { Divider() }
                 }
 
-                HStack {
-                    Text("Total").font(AppFonts.headline)
-                    Spacer()
-                    // Display the server total instead of calculating it in the view.
-                    PriceView(price: cart.total)
-                }
-                .padding(AppSpacing.medium)
-                .background(AppColors.cardBackground)
-                .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
+
             }
             .padding(AppSpacing.medium)
         }
@@ -91,39 +158,37 @@ struct CartView: View {
 
     private func itemRow(_ item: CartItem) -> some View {
         HStack(alignment: .top, spacing: AppSpacing.medium) {
-            NetworkImage(url: item.images.first.flatMap(URL.init(string:)))
-                .frame(width: 80, height: 80)
+            Color.white
+                .frame(width: 96, height: 112)
+                .overlay {
+                    NetworkImage(url: item.images.first.flatMap(URL.init(string:)), contentMode: .fit)
+                        .padding(8)
+                }
                 .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: AppSpacing.small) {
                 Text(item.title)
-                    .font(AppFonts.headline)
+                    .font(AppFonts.bodyMedium)
+                    .lineLimit(2)
                     .foregroundStyle(AppColors.textPrimary)
-                Text("Quantity: \(item.quantity)")
-                    .font(AppFonts.caption)
-                    .foregroundStyle(AppColors.textSecondary)
-                quantityControls(item)
-
-                Button(role: .destructive) {
-                    Task {
-                        await viewModel.removeItem(productId: item.productId)
-                    }
-                } label: {
-                    Label("Remove", systemImage: "trash")
-                        .font(AppFonts.caption)
-                        .frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(AppColors.error)
-                .disabled(viewModel.isUpdating || viewModel.isLoading)
-                .accessibilityLabel("Remove \(item.title) from cart")
-
-                Text("Subtotal")
-                    .font(AppFonts.caption)
-                    .foregroundStyle(AppColors.textSecondary)
                 PriceView(price: item.subtotal)
+                HStack {
+                    quantityControls(item)
+                        .disabled(checkoutSession != nil)
+                    Spacer(minLength: 0)
+                    Button(role: .destructive) {
+                        Task { await viewModel.removeItem(productId: item.productId) }
+                    } label: {
+                        Image(systemName: "trash")
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .disabled(viewModel.isUpdating || viewModel.isLoading || checkoutSession != nil)
+                    .accessibilityLabel("Remove \(item.title) from cart")
+                }
 
                 if item.stock < item.quantity {
                     Text(item.stock <= 0 ? "Currently out of stock" : "Only \(item.stock) available")
@@ -132,14 +197,12 @@ struct CartView: View {
                 }
             }
         }
-        .padding(AppSpacing.medium)
+        .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
     }
 
     private func quantityControls(_ item: CartItem) -> some View {
-        HStack(spacing: AppSpacing.small) {
+        HStack(spacing: 0) {
             Button {
                 Task {
                     await viewModel.updateQuantity(
@@ -173,7 +236,7 @@ struct CartView: View {
             .disabled(item.quantity >= item.stock)
             .accessibilityLabel("Increase quantity of \(item.title)")
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
         .tint(AppColors.primary)
         .disabled(viewModel.isUpdating || viewModel.isLoading)
     }

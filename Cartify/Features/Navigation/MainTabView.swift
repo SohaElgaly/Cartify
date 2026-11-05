@@ -30,18 +30,22 @@ struct MainTabView: View {
             NavigationStack {
                 CartView(
                     viewModel: cartViewModel,
-                    onContinueShopping: { selectedTab = .home }
+                    onContinueShopping: { selectedTab = .home },
+                    container: container
                 )
             }
             .tabItem { Label("Cart", systemImage: "cart") }
             .tag(Tab.cart)
 
             NavigationStack {
-                ProfileView(logoutViewModel: container.makeLogoutViewModel())
+                ProfileView(container: container)
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
             .tag(Tab.profile)
         }
         .tint(AppColors.primary)
+        .onReceive(NotificationCenter.default.publisher(for: .orderPaymentCompleted)) { _ in
+            Task { await cartViewModel.fetchCart() }
+        }
     }
 }

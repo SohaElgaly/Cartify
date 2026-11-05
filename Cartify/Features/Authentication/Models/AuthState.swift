@@ -8,6 +8,7 @@
 import Foundation
 
 enum AuthState {
+    case restoring
     case authenticated
     case unauthenticated
 }
