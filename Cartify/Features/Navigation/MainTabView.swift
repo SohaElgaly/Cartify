@@ -38,7 +38,7 @@ struct MainTabView: View {
             .tag(Tab.cart)
 
             NavigationStack {
-                ProfileView(logoutViewModel: container.makeLogoutViewModel())
+                ProfileView(container: container)
             }
             .tabItem { Label("Profile", systemImage: "person.crop.circle") }
             .tag(Tab.profile)

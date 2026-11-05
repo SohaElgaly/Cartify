@@ -42,7 +42,7 @@ struct AddressFormView: View {
             Section {
                 Toggle("Use as default address", isOn: $viewModel.isDefault)
             } footer: {
-                Text("Your first address becomes the default automatically. All fields except postal code are required.")
+                Text("Your first address becomes the default. Postal code is optional.")
             }
 
             if let message = viewModel.errorMessage {

@@ -29,11 +29,23 @@ struct PriceView: View {
     }
 
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            prices
+            VStack(alignment: .leading, spacing: 4) {
+                Text(formatted(hasValidDiscount ? (discountedPrice ?? price) : price)).font(AppFonts.headline)
+                if hasValidDiscount { Text(formatted(price)).font(AppFonts.footnote).strikethrough().foregroundStyle(AppColors.textSecondary) }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityText)
+    }
+
+    private var prices: some View {
         HStack(spacing: AppSpacing.xs) {
             // Primary (current selling) price
             Text(formatted(hasValidDiscount ? (discountedPrice ?? price) : price))
                 .font(AppFonts.headline)
-                .foregroundStyle(AppColors.primary)
+                .foregroundStyle(AppColors.textPrimary)
 
             // Original price (only when a valid discount exists)
             if hasValidDiscount {

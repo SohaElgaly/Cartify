@@ -2,7 +2,6 @@ import SwiftUI
 
 struct OrderDetailsView: View {
     @State private var viewModel: OrderDetailsViewModel
-    @State private var confirmingPayment = false
     private let onOrderUpdated: (Order) -> Void
 
     init(viewModel: OrderDetailsViewModel, onOrderUpdated: @escaping (Order) -> Void = { _ in }) {
@@ -17,19 +16,44 @@ struct OrderDetailsView: View {
                 Section {
                     Text(message).foregroundStyle(AppColors.error)
                     Button("Check Order Status") { Task { await refresh() } }
-                        .disabled(viewModel.isLoading || viewModel.isPaying)
+                        .disabled(viewModel.isLoading)
                 }
             }
             if let order = viewModel.order {
                 Section("Order") {
-                    LabeledContent("Status", value: order.status)
-                    Text(order.id).textSelection(.enabled)
-                    Text(order.createdAt).font(AppFonts.caption)
+                    HStack {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Order #\(order.id.suffix(8).uppercased())").font(AppFonts.headline)
+                            Text(DisplayDate.string(order.createdAt))
+                                .font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary)
+                        }
+                        Spacer()
+                        OrderStatusBadge(status: order.status)
+                    }
+                    .padding(.vertical, 8)
+                }
+                Section("Delivery progress") {
+                    if let current = order.deliveryStep {
+                        VStack(alignment: .leading, spacing: 18) {
+                            ForEach(Array(["Confirmed", "Preparing", "Shipped", "Delivered"].enumerated()), id: \.offset) { index, title in
+                                HStack(spacing: 12) {
+                                    Image(systemName: index < current ? "checkmark.circle.fill" : (index == current ? "largecircle.fill.circle" : "circle"))
+                                        .foregroundStyle(index <= current ? AppColors.primary : AppColors.textSecondary)
+                                    Text(title).font(index == current ? AppFonts.headline : AppFonts.body)
+                                    Spacer()
+                                    if index == current { Text("Current").font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary) }
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                    } else {
+                        Text(Order.deliveryLabel(for: order.status))
+                    }
                 }
                 Section("Items") {
                     ForEach(Array(order.items.enumerated()), id: \.offset) { _, item in
                         HStack {
-                            NetworkImage(url: URL(string: item.image))
+                            NetworkImage(url: item.image.flatMap(URL.init(string:)))
                                 .frame(width: 50, height: 50).clipped()
                             VStack(alignment: .leading) {
                                 Text(item.title)
@@ -41,53 +65,36 @@ struct OrderDetailsView: View {
                     }
                 }
                 Section("Delivery address") {
-                    Text(order.shippingAddress.fullName)
-                    Text(order.shippingAddress.phone)
-                    Text(order.shippingAddress.addressLine)
-                    Text("\(order.shippingAddress.city), \(order.shippingAddress.country)")
-                    if let postal = order.shippingAddress.postalCode { Text(postal) }
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(order.shippingAddress.fullName).font(AppFonts.headline)
+                        Text(order.shippingAddress.phone)
+                        Text(order.shippingAddress.addressLine)
+                        Text("\(order.shippingAddress.city), \(order.shippingAddress.country)")
+                        if let postal = order.shippingAddress.postalCode, !postal.isEmpty {
+                            Text(postal)
+                        }
+                    }
+                    .font(AppFonts.body)
+                    .padding(.vertical, 8)
                 }
-                Section("Summary") {
+                Section("Bill summary") {
                     amount("Subtotal", order.subtotal)
                     amount("Discount", order.discount)
                     if let coupon = order.coupon { LabeledContent("Coupon", value: coupon.code) }
                     amount("Total", order.total)
                 }
-                Section("Payment") {
-                    if let paymentID = order.paymentId {
-                        Text(paymentID).textSelection(.enabled)
-                    }
-                    if let paidAt = order.paidAt { Text(paidAt).font(AppFonts.caption) }
-                    if order.status == "Pending" {
-                        Text("Simulated payment. No real money will be charged.")
-                            .font(AppFonts.caption)
-                        Button("Pay for This Order") { confirmingPayment = true }
-                            .disabled(!viewModel.canPay)
-                    }
-                    if viewModel.isPaying { ProgressView("Confirming payment…") }
-                    if viewModel.requiresVerification {
-                        Text("Refresh the order status before attempting payment.")
-                            .font(AppFonts.caption)
-                    }
-                }
+
             } else if !viewModel.isLoading && viewModel.errorMessage == nil {
                 Button("Load Order") { Task { await refresh() } }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(AppColors.background)
         .navigationTitle("Order Details")
         .navigationBarTitleDisplayMode(.inline)
         .tint(AppColors.primary)
         .task { await refresh() }
         .refreshable { await refresh() }
-        .confirmationDialog("Confirm simulated payment?", isPresented: $confirmingPayment, titleVisibility: .visible) {
-            Button("Confirm Payment") {
-                Task {
-                    await viewModel.pay()
-                    if let order = viewModel.order { onOrderUpdated(order) }
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
     }
 
     private func refresh() async {

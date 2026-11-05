@@ -100,6 +100,9 @@ final class APIClient {
             do {
                 return try decoder.decode(T.self, from: data)
             } catch  {
+                #if DEBUG
+                print("Decoding \(T.self): \(NetworkError.decodingDiagnostic(error))")
+                #endif
                 throw NetworkError.decoding(error)
             }
             

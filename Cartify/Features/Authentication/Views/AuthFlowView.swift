@@ -9,10 +9,22 @@ import SwiftUI
 
 struct AuthFlowView: View {
     @State private var authSession = AppContainer.shared.authSession
+    @AppStorage("Cartify.hasSeenWelcome") private var hasSeenWelcome = false
     @State private var path: [AuthRoute] = []
     var body: some View {
         Group {
-            if authSession.state == .authenticated {
+            if !hasSeenWelcome {
+                WelcomeView { hasSeenWelcome = true }
+            } else if authSession.state == .restoring {
+                VStack(spacing: 20) {
+                    Image(systemName: "bag.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(AppColors.primary)
+                    ProgressView("Opening Cartify…")
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(AppColors.background)
+            } else if authSession.state == .authenticated {
                 MainTabView(container: AppContainer.shared)
             } else {
                 NavigationStack(path: $path) {

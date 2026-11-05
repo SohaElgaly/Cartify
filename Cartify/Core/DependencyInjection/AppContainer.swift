@@ -61,7 +61,7 @@ final class AppContainer {
         LogoutViewModel(authRepository: authRepository,authSession: authSession)
     }
     func makeCartViewModel() -> CartViewModel {
-        CartViewModel(repository: cartRepository)
+        CartViewModel(repository: cartRepository, productRepository: productRepository)
     }
     func makeAddressesViewModel() -> AddressesViewModel {
         AddressesViewModel(repository: addressesRepository)
@@ -75,7 +75,10 @@ final class AppContainer {
     func makeOrdersViewModel() -> OrdersViewModel {
         OrdersViewModel(repository: ordersRepository)
     }
+    func makeProfileViewModel() -> ProfileViewModel {
+        ProfileViewModel(session: authSession)
+    }
     func makeOrderDetailsViewModel(orderID: String) -> OrderDetailsViewModel {
-        OrderDetailsViewModel(orderID: orderID, ordersRepository: ordersRepository, checkoutRepository: checkoutRepository)
+        OrderDetailsViewModel(orderID: orderID, ordersRepository: ordersRepository)
     }
 }

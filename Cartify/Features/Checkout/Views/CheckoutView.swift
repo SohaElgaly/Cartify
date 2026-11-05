@@ -4,260 +4,298 @@ struct CheckoutView: View {
     @State private var viewModel: CheckoutViewModel
     @State private var addressesViewModel: AddressesViewModel
     @State private var addressForm: AddressFormSession?
+    @State private var choosingAddress = false
+    @State private var validationMessage: String?
     @Environment(\.dismiss) private var dismiss
 
     private let cart: CartResponse
     private let makeAddressForm: (Address?) -> AddressFormViewModel
     private let onPaymentSucceeded: () async -> Void
+    private let onContinueShopping: () -> Void
 
     private struct AddressFormSession: Identifiable {
         let id = UUID()
         let viewModel: AddressFormViewModel
     }
 
-    init(
-        viewModel: CheckoutViewModel,
-        addressesViewModel: AddressesViewModel,
-        cart: CartResponse,
-        makeAddressForm: @escaping (Address?) -> AddressFormViewModel,
-        onPaymentSucceeded: @escaping () async -> Void
-    ) {
+    init(viewModel: CheckoutViewModel, addressesViewModel: AddressesViewModel,
+         cart: CartResponse, makeAddressForm: @escaping (Address?) -> AddressFormViewModel,
+         onPaymentSucceeded: @escaping () async -> Void,
+         onContinueShopping: @escaping () -> Void) {
         _viewModel = State(initialValue: viewModel)
         _addressesViewModel = State(initialValue: addressesViewModel)
         self.cart = cart
         self.makeAddressForm = makeAddressForm
         self.onPaymentSucceeded = onPaymentSucceeded
+        self.onContinueShopping = onContinueShopping
     }
 
     private var inputsLocked: Bool {
-        viewModel.isLoading || viewModel.createdOrder != nil || viewModel.needsOrderVerification
+        viewModel.isBusy || viewModel.createdOrder != nil || viewModel.needsOrderVerification
+    }
+    private var selectedAddress: Address? {
+        addressesViewModel.addresses.first { $0.id == viewModel.selectedAddressID }
+    }
+    private var total: Double {
+        viewModel.paymentResponse?.total ?? viewModel.verifiedOrder?.total ?? viewModel.createdOrder?.total ?? cart.total
     }
 
     var body: some View {
-        Form {
-            if let payment = viewModel.paymentResponse {
-                Section {
-                    Label("Payment confirmed", systemImage: "checkmark.circle.fill")
-                        .font(AppFonts.headline)
-                        .foregroundStyle(.green)
-                    Text("Your order has been placed using simulated payment.")
-                    LabeledContent("Order", value: payment.orderId)
-                    LabeledContent("Payment reference", value: payment.paymentId)
-                    amountRow("Total paid", payment.total)
-                    orderDetailsLink(payment.orderId)
-                    Button("Done") { dismiss() }
-                }
-            } else if let order = viewModel.verifiedOrder, viewModel.isFinished {
-                Section("Order confirmed") {
-                    LabeledContent("Status", value: order.status)
-                    amountRow("Total", order.total)
-                    orderDetailsLink(order.id)
-                    Button("Done") { dismiss() }
-                }
-            } else {
-                deliverySection
-                itemsSection
-                Section("Coupon") {
-                    TextField("Coupon code (optional)", text: $viewModel.couponCode)
-                        .textInputAutocapitalization(.characters)
-                        .autocorrectionDisabled()
-                        .disabled(inputsLocked)
-                    Text("Any discount is confirmed when your order is created.")
-                        .font(AppFonts.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-                Section("Order summary") {
-                    if let order = viewModel.createdOrder {
-                        amountRow("Subtotal", order.subtotal)
-                        amountRow("Discount", order.discount)
-                        amountRow("Total", order.total)
-                        Text("Order: \(order.orderId)")
-                            .font(AppFonts.caption)
-                            .textSelection(.enabled)
-                    } else {
-                        amountRow("Cart total", cart.total)
-                        Text("Review the final total returned after creating your order, before paying.")
-                            .font(AppFonts.caption)
-                            .foregroundStyle(AppColors.textSecondary)
-                    }
-                }
-                Section("Payment method") {
-                    Label("Simulated payment", systemImage: "creditcard")
-                    Text("No real money is charged. Card details are not required.")
-                        .font(AppFonts.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-                if let message = viewModel.errorMessage {
-                    Section {
-                        Text(message).foregroundStyle(AppColors.error)
-                        if viewModel.needsOrderVerification {
-                            Text("Check the order status below before attempting payment again. If the order number was not received, review My Orders; do not create another order until the result is confirmed.")
-                                .font(AppFonts.caption)
-                        }
-                    }
-                }
-                if let order = viewModel.createdOrder {
-                    Section { orderDetailsLink(order.orderId) }
-                } else if viewModel.needsOrderVerification {
-                    Section {
-                        NavigationLink("Review My Orders") {
-                            OrdersView(viewModel: AppContainer.shared.makeOrdersViewModel())
-                        }
-                    }
-                }
-                Section {
-                    Button {
-                        Task {
-                            if viewModel.createdOrder == nil {
-                                await viewModel.createOrder()
-                            } else {
-                                await viewModel.payOrder()
-                                if viewModel.isFinished {
-                                    await onPaymentSucceeded()
-                                }
-                            }
-                        }
-                    } label: {
-                        HStack {
-                            Spacer()
-                            if viewModel.isLoading {
-                                ProgressView()
-                            }
-                            Text(viewModel.createdOrder == nil ? "Create Order" : "Confirm Simulated Payment")
-                            Spacer()
-                        }
-                    }
-                    .disabled(actionDisabled)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                if viewModel.isFinished {
+                    completion
+                } else {
+                    delivery
+                    Divider()
+                    payment
+                    Divider()
+                    summary
                 }
             }
+            .padding(24)
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
         }
-        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
         .background(AppColors.background)
+        .foregroundStyle(AppColors.textPrimary)
+        .safeAreaInset(edge: .bottom) { footer }
         .tint(AppColors.primary)
-        .navigationTitle("Checkout")
+        .navigationTitle(viewModel.isFinished ? "Your order" : "Checkout")
         .navigationBarTitleDisplayMode(.inline)
-        .interactiveDismissDisabled(viewModel.isLoading)
+        .interactiveDismissDisabled(viewModel.isBusy)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Close") { dismiss() }
-                    .disabled(viewModel.isLoading)
+                Button { dismiss() } label: { Image(systemName: "xmark") }
+                    .accessibilityLabel("Close checkout")
+                    .disabled(viewModel.isBusy)
             }
         }
-        .task {
-            if viewModel.createdOrder == nil { await reloadAddresses() }
-        }
-        .sheet(item: $addressForm, onDismiss: {
-            Task { await reloadAddresses() }
-        }) { session in
+        .task { if viewModel.createdOrder == nil { await reloadAddresses() } }
+        .onChange(of: viewModel.selectedAddressID) { _, _ in validationMessage = nil }
+        .sheet(item: $addressForm, onDismiss: { Task { await reloadAddresses() } }) { session in
             NavigationStack { AddressFormView(viewModel: session.viewModel) }
         }
     }
 
-    private func orderDetailsLink(_ id: String) -> some View {
-        NavigationLink("Order Details & Status") {
-            OrderDetailsView(
-                viewModel: AppContainer.shared.makeOrderDetailsViewModel(orderID: id),
-                onOrderUpdated: { order in
-                    viewModel.acceptVerifiedOrder(order)
-                    if viewModel.isFinished {
-                        Task { await onPaymentSucceeded() }
-                    }
+    private var delivery: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label("Delivery address", systemImage: "mappin.and.ellipse").font(AppFonts.headline)
+                Spacer()
+                if selectedAddress != nil && !inputsLocked {
+                    Button("Change") { choosingAddress.toggle() }.font(AppFonts.captionMedium)
                 }
-            )
-        }
-        .disabled(viewModel.isLoading)
-    }
-
-    private var actionDisabled: Bool {
-        viewModel.isLoading || viewModel.needsOrderVerification ||
-        (viewModel.createdOrder == nil && (
-            addressesViewModel.isLoading || addressesViewModel.errorMessage != nil ||
-            !addressesViewModel.addresses.contains { $0.id == viewModel.selectedAddressID }
-        ))
-    }
-
-    private var deliverySection: some View {
-        Section("Delivery details") {
+            }
             if addressesViewModel.isLoading {
                 ProgressView("Loading addresses…")
+            } else if addressesViewModel.errorMessage != nil {
+                Text("We couldn't load your addresses.").foregroundStyle(AppColors.textSecondary)
+                Button("Try again") { Task { await reloadAddresses() } }
+            } else if let address = selectedAddress {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(address.fullName).font(AppFonts.bodyMedium)
+                    Text(address.phone)
+                    Text("\(address.addressLine), \(address.city), \(address.country)")
+                }
+                .font(AppFonts.caption)
+                .foregroundStyle(AppColors.textSecondary)
+            } else {
+                Button {
+                    addressForm = AddressFormSession(viewModel: makeAddressForm(nil))
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle")
+                        Text("Add delivery address")
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.caption)
+                    }
+                    .padding(18)
+                    .background(AppColors.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+                .disabled(inputsLocked)
             }
-            if let message = addressesViewModel.errorMessage {
-                Text(message).foregroundStyle(AppColors.error)
-                Button("Retry addresses") { Task { await reloadAddresses() } }
-                    .disabled(inputsLocked || addressesViewModel.isLoading)
-            }
-            if addressesViewModel.hasLoaded && addressesViewModel.addresses.isEmpty {
-                Text("Add a delivery address with the recipient's name and phone number.")
-            }
-            ForEach(addressesViewModel.addresses) { address in
-                if viewModel.createdOrder == nil || address.id == viewModel.selectedAddressID {
+            if choosingAddress && !inputsLocked {
+                ForEach(addressesViewModel.addresses) { address in
                     Button {
                         viewModel.selectedAddressID = address.id
+                        choosingAddress = false
                     } label: {
-                        HStack(alignment: .top) {
-                            Image(systemName: address.id == viewModel.selectedAddressID
-                                  ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(AppColors.primary)
-                            VStack(alignment: .leading, spacing: AppSpacing.small) {
-                                Text(address.fullName).font(AppFonts.headline)
-                                Text(address.phone)
-                                Text(address.addressLine)
-                                Text("\(address.city), \(address.country)")
-                                if let postalCode = address.postalCode, !postalCode.isEmpty {
-                                    Text(postalCode)
-                                }
-                                if address.isDefault {
-                                    Text("Default address").font(AppFonts.caption)
-                                }
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(address.fullName)
+                                Text(address.addressLine).font(AppFonts.caption)
                             }
-                            .foregroundStyle(AppColors.textPrimary)
+                            Spacer()
+                            Image(systemName: address.id == viewModel.selectedAddressID ? "checkmark.circle.fill" : "circle")
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(minHeight: 44)
                     }
-                    .disabled(inputsLocked || addressesViewModel.isLoading)
-                    .accessibilityAddTraits(address.id == viewModel.selectedAddressID ? .isSelected : [])
+                    .buttonStyle(.plain)
                 }
-            }
-            if !inputsLocked {
-                Button("Add Address", systemImage: "plus") {
-                    addressForm = AddressFormSession(viewModel: makeAddressForm(nil))
-                }
-                .disabled(addressesViewModel.isLoading)
-                if let selected = addressesViewModel.addresses.first(where: { $0.id == viewModel.selectedAddressID }) {
-                    Button("Edit Selected Address") {
-                        addressForm = AddressFormSession(viewModel: makeAddressForm(selected))
+                HStack(spacing: 24) {
+                    Button("New address") { addressForm = AddressFormSession(viewModel: makeAddressForm(nil)) }
+                    if let selectedAddress {
+                        Button("Edit selected") { addressForm = AddressFormSession(viewModel: makeAddressForm(selectedAddress)) }
                     }
-                    .disabled(addressesViewModel.isLoading)
                 }
+                .font(AppFonts.captionMedium)
+                .frame(minHeight: 44)
             }
         }
     }
 
-    private var itemsSection: some View {
-        Section("Items at checkout") {
-            ForEach(cart.items) { item in
-                HStack(spacing: AppSpacing.medium) {
-                    NetworkImage(url: item.images.first.flatMap(URL.init(string:)))
-                        .frame(width: 52, height: 52)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.small))
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading) {
-                        Text(item.title).font(AppFonts.bodyMedium)
-                        Text("Quantity: \(item.quantity)")
-                            .font(AppFonts.caption)
-                            .foregroundStyle(AppColors.textSecondary)
+    private var payment: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Payment method").font(AppFonts.headline)
+            ForEach(DemoPaymentMethod.allCases) { method in
+                Button { viewModel.demoPaymentMethod = method } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: method.symbol).frame(width: 24)
+                        Text(method.title).font(AppFonts.bodyMedium)
+                        Spacer()
+                        Image(systemName: viewModel.demoPaymentMethod == method ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(AppColors.primary)
                     }
-                    Spacer()
-                    PriceView(price: item.subtotal)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 56)
+                    .background(viewModel.demoPaymentMethod == method ? AppColors.primaryLight : AppColors.cardBackground,
+                                in: RoundedRectangle(cornerRadius: 14))
+                }
+                .buttonStyle(.plain)
+                .disabled(inputsLocked)
+                .accessibilityAddTraits(viewModel.demoPaymentMethod == method ? .isSelected : [])
+            }
+            Text("Simulated checkout. No money is charged or delivery arranged.")
+                .font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary)
+        }
+    }
+
+    private var summary: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            DisclosureGroup("Your bag · \(cart.items.reduce(0) { $0 + $1.quantity }) items") {
+                ForEach(cart.items) { item in
+                    HStack(spacing: 12) {
+                        Color.white.frame(width: 56, height: 64)
+                            .overlay {
+                                NetworkImage(url: item.images.first.flatMap(URL.init(string:)), contentMode: .fit).padding(5)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title).font(AppFonts.captionMedium)
+                            Text("Qty \(item.quantity)").font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary)
+                        }
+                        Spacer()
+                        PriceView(price: item.subtotal)
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+            DisclosureGroup("Have a coupon?") {
+                TextField("Enter coupon code", text: $viewModel.couponCode)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                    .cartifyInput()
+                    .disabled(inputsLocked)
+                    .padding(.top, 10)
+                Text("Valid discounts are applied to your final total.")
+                    .font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary)
+            }
+            if let order = viewModel.createdOrder, order.discount > 0 {
+                amountRow("Subtotal", order.subtotal)
+                amountRow("Discount", order.discount)
+            }
+        }
+    }
+
+    private var completion: some View {
+        VStack(spacing: 22) {
+            Image(systemName: viewModel.verifiedOrder?.status == "Cancelled" ? "xmark.circle" : "checkmark.circle.fill")
+                .font(.system(size: 64, weight: .light))
+                .foregroundStyle(AppColors.primary)
+                .padding(.top, 40)
+            Text(viewModel.verifiedOrder?.status == "Cancelled" ? "Order cancelled" : "You're all set!")
+                .font(AppFonts.largeTitle)
+            Text("You can follow your order from your profile.")
+                .font(AppFonts.body).foregroundStyle(AppColors.textSecondary)
+                .multilineTextAlignment(.center)
+            if let id = viewModel.paymentResponse?.orderId ?? viewModel.verifiedOrder?.id {
+                VStack(spacing: 16) {
+                    Text("Order #\(id.suffix(8).uppercased())").font(AppFonts.captionMedium)
+                    amountRow("Total", total)
+                    NavigationLink("View order details") {
+                        OrderDetailsView(viewModel: AppContainer.shared.makeOrderDetailsViewModel(orderID: id))
+                    }
+                    .font(AppFonts.captionMedium)
+                    .frame(minHeight: 44)
+                }
+                .padding(24)
+                .background(AppColors.cardBackground, in: RoundedRectangle(cornerRadius: 20))
+            }
+            Text("Simulated checkout — no money was charged.")
+                .font(AppFonts.footnote).foregroundStyle(AppColors.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var footer: some View {
+        VStack(spacing: 12) {
+            if viewModel.isFinished {
+                PrimaryButton(title: "Continue shopping", action: onContinueShopping)
+            } else {
+                if let message = validationMessage ?? viewModel.errorMessage {
+                    Text(message).font(AppFonts.footnote).foregroundStyle(AppColors.error)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                amountRow("Total", total)
+                if viewModel.needsOrderVerification && viewModel.createdOrder == nil {
+                    NavigationLink("Review orders before trying again") {
+                        OrdersView(viewModel: AppContainer.shared.makeOrdersViewModel(), includesIncomplete: true)
+                    }
+                    .frame(minHeight: 44)
+                } else {
+                    PrimaryButton(title: viewModel.needsOrderVerification ? "Check order status" : "Confirm order",
+                                  isLoading: viewModel.isBusy, isEnabled: !viewModel.isBusy) {
+                        Task { await submit() }
+                    }
                 }
             }
         }
+        .padding(20)
+        .frame(maxWidth: 600)
+        .frame(maxWidth: .infinity)
+        .background(AppColors.background)
+    }
+
+    private func submit() async {
+        validationMessage = nil
+        if viewModel.needsOrderVerification {
+            await viewModel.verifyPaymentStatus()
+        } else {
+            if viewModel.createdOrder == nil {
+                guard !addressesViewModel.isLoading else {
+                    validationMessage = "Please wait while we load your addresses."
+                    return
+                }
+                guard addressesViewModel.errorMessage == nil else {
+                    validationMessage = "Reload your addresses before confirming your order."
+                    return
+                }
+                guard selectedAddress != nil else {
+                    validationMessage = "Add an address to complete your order checkout."
+                    return
+                }
+            }
+            await viewModel.confirmPayment()
+        }
+        if viewModel.isFinished { await onPaymentSucceeded() }
     }
 
     private func amountRow(_ title: String, _ amount: Double) -> some View {
         HStack {
-            Text(title)
+            Text(title).font(AppFonts.headline)
             Spacer()
             PriceView(price: amount)
         }
@@ -266,7 +304,7 @@ struct CheckoutView: View {
     private func reloadAddresses() async {
         await addressesViewModel.fetchAddresses()
         guard addressesViewModel.errorMessage == nil else { return }
-        if !addressesViewModel.addresses.contains(where: { $0.id == viewModel.selectedAddressID }) {
+        if selectedAddress == nil {
             viewModel.selectedAddressID = addressesViewModel.addresses.first(where: \.isDefault)?.id
                 ?? addressesViewModel.addresses.first?.id
         }

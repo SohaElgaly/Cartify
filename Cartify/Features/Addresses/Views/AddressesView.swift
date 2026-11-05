@@ -91,9 +91,6 @@ struct AddressesView: View {
                         .frame(minHeight: 280)
                         .disabled(isBusy)
                 } else {
-                    Text("Your delivery locations")
-                        .font(AppFonts.caption)
-                        .foregroundStyle(AppColors.textSecondary)
                     ForEach(viewModel.addresses) { address in
                         addressCard(address)
                     }
@@ -144,7 +141,7 @@ struct AddressesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AppColors.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.large))
-        .overlay(RoundedRectangle(cornerRadius: AppCornerRadius.large).stroke(AppColors.border))
+        .overlay(RoundedRectangle(cornerRadius: AppCornerRadius.large).stroke(AppColors.border.opacity(0.5), lineWidth: 0.5))
     }
 
     private func openForm(_ address: Address? = nil) {

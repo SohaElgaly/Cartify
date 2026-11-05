@@ -33,7 +33,7 @@ struct ProductDetails: View {
 
                         stockSection(product: product)
 
-                        cartSection(product)
+
                     }
                     .padding(AppSpacing.medium)
                 }
@@ -67,6 +67,14 @@ struct ProductDetails: View {
                 await viewModel.fetchProductDetails(id: productID)
         }
         .background(AppColors.background)
+        .safeAreaInset(edge: .bottom) {
+            if let product = viewModel.product {
+                cartSection(product)
+                    .padding(16)
+                    .background(AppColors.cardBackground)
+            }
+        }
+        .navigationTitle("Product details")
         .task {
             if cartViewModel.cart == nil { await cartViewModel.fetchCart() }
         }

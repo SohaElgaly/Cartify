@@ -16,6 +16,8 @@ final class CheckoutViewModel {
 
     var selectedAddressID: String?
     var couponCode = ""
+    // Presentation-only choice: the backend supports simulated payment only.
+    var demoPaymentMethod: DemoPaymentMethod = .card
 
     // MARK: - Screen state
 
@@ -23,6 +25,8 @@ final class CheckoutViewModel {
     private(set) var paymentResponse: PaymentResponse?
 
     private(set) var isLoading = false
+    private(set) var isSubmitting = false
+    var isBusy: Bool { isLoading || isSubmitting }
     private(set) var errorMessage: String?
 
     // Stops another attempt when the previous result is uncertain.
@@ -38,8 +42,8 @@ final class CheckoutViewModel {
     func acceptVerifiedOrder(_ order: Order) {
         guard order.id == createdOrder?.orderId else { return }
         verifiedOrder = order
-        // Continue payment in Order Details, which verifies status before sending.
-        needsOrderVerification = true
+        // A verified pending order can be retried only from Checkout.
+        needsOrderVerification = order.status != "Pending"
     }
 
     // MARK: - Dependencies
@@ -52,9 +56,36 @@ final class CheckoutViewModel {
         self.ordersRepository = ordersRepository
     }
 
+    // One user action; the backend still requires create, verify, then pay.
+    func confirmPayment() async {
+        guard !isBusy, !needsOrderVerification, !isFinished else { return }
+        isSubmitting = true
+        errorMessage = nil
+        defer { isSubmitting = false }
+        if createdOrder == nil { await createOrder() }
+        guard createdOrder != nil, errorMessage == nil, !needsOrderVerification else { return }
+        await payOrder()
+    }
+
+    // A failed POST is never repeated automatically.
+    func verifyPaymentStatus() async {
+        guard !isBusy, let id = createdOrder?.orderId else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            let order = try await ordersRepository.fetchOrder(id: id)
+            guard order.id == id else { throw NetworkError.invalidResponse }
+            acceptVerifiedOrder(order)
+            errorMessage = order.status == "Pending" ? "Payment hasn't completed. You can try again here." : nil
+        } catch {
+            needsOrderVerification = true
+            errorMessage = "Couldn't check payment. Please try checking again."
+        }
+    }
+
     // MARK: - Create order
 
-    func createOrder() async {
+    private func createOrder() async {
         guard !isLoading,
               !needsOrderVerification,
               createdOrder == nil else {
@@ -65,7 +96,7 @@ final class CheckoutViewModel {
 
         guard let addressID = selectedAddressID,
               !addressID.isEmpty else {
-            errorMessage = "Please select a delivery address."
+            errorMessage = "Add an address to complete your order checkout."
             return
         }
 
@@ -99,7 +130,7 @@ final class CheckoutViewModel {
 
     // MARK: - Pay for order
 
-    func payOrder() async {
+    private func payOrder() async {
         guard !isLoading,
               !needsOrderVerification,
               paymentResponse == nil else {
@@ -187,6 +218,29 @@ final class CheckoutViewModel {
              .missingRefreshToken,
              .authenticationError:
             errorMessage = networkError.localizedDescription
+        }
+    }
+}
+
+
+enum DemoPaymentMethod: String, CaseIterable, Identifiable {
+    case card, applePay, cashOnDelivery
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .card: "Card (Visa / Mastercard)"
+        case .applePay: "Apple Pay"
+        case .cashOnDelivery: "Cash on delivery"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .card: "creditcard"
+        case .applePay: "iphone"
+        case .cashOnDelivery: "banknote"
         }
     }
 }

@@ -129,9 +129,7 @@ final class RegisterViewModel {
         defer { isLoading = false }
         do {
             let authData = try await repository.register(request: RegisterRequest(firstName:firstName,lastName:lastName,email: email, password: password, phone: phone))
-           let user = authData.user
-            authSession.authenticate()
-            print("user registered: \(user)")
+            try authSession.authenticate(user: authData.user)
         } catch {
             errorMessage = error.localizedDescription
         }

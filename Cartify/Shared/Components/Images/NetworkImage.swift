@@ -11,6 +11,7 @@ import SwiftUI
 struct NetworkImage: View {
     
     let url: URL?
+    var contentMode: ContentMode = .fill
 
     var body: some View {
         Group {
@@ -22,7 +23,7 @@ struct NetworkImage: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .scaledToFill()
+                            .aspectRatio(contentMode: contentMode)
                     case .failure:
                         placeholder
                     @unknown default:

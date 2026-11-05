@@ -1,41 +1,14 @@
-//
-//  AppFonts.swift
-//  Cartify
-//
-//  Created by Soha Elgaly on 25/07/2026.
-//
-
-import Foundation
 import SwiftUI
 
-
+// Semantic styles scale with the user's preferred text size.
 enum AppFonts {
-
-    // MARK: - Titles
-
-    static let largeTitle = Font.custom("Poppins-Bold", size: 32)
-
-    static let title = Font.custom("Poppins-Bold", size: 24)
-
-    static let title2 = Font.custom("Poppins-SemiBold", size: 20)
-
-    // MARK: - Headlines
-
-    static let headline = Font.custom("Poppins-SemiBold", size: 17)
-
-    // MARK: - Body
-
-    static let body = Font.custom("Poppins-Regular", size: 16)
-
-    static let bodyMedium = Font.custom("Poppins-Medium", size: 16)
-
-    // MARK: - Caption
-
-    static let caption = Font.custom("Poppins-Regular", size: 14)
-
-    static let captionMedium = Font.custom("Poppins-Medium", size: 14)
-
-    // MARK: - Small
-
-    static let footnote = Font.custom("Poppins-Regular", size: 12)
+    static let largeTitle = Font.system(.largeTitle, design: .rounded, weight: .bold)
+    static let title = Font.system(.title2, design: .rounded, weight: .bold)
+    static let title2 = Font.system(.title3, weight: .semibold)
+    static let headline = Font.system(.headline, weight: .semibold)
+    static let body = Font.system(.body)
+    static let bodyMedium = Font.system(.body, weight: .medium)
+    static let caption = Font.system(.subheadline)
+    static let captionMedium = Font.system(.subheadline, weight: .semibold)
+    static let footnote = Font.system(.footnote)
 }

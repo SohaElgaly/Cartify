@@ -3,7 +3,13 @@ import SwiftUI
 struct OrdersView: View {
     @State private var viewModel: OrdersViewModel
 
-    init(viewModel: OrdersViewModel) {
+    private let includesIncomplete: Bool
+    private var visibleOrders: [Order] {
+        includesIncomplete ? viewModel.orders : viewModel.orders.filter(\.isConfirmed)
+    }
+
+    init(viewModel: OrdersViewModel, includesIncomplete: Bool = false) {
+        self.includesIncomplete = includesIncomplete
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -21,15 +27,15 @@ struct OrdersView: View {
                     }
                 }
 
-                if viewModel.hasLoaded && viewModel.orders.isEmpty {
+                if viewModel.hasLoaded && visibleOrders.isEmpty {
                     ContentUnavailableView(
-                        "No orders yet",
+                        viewModel.canLoadMore ? "No matching orders on this page" : "No confirmed orders yet",
                         systemImage: "shippingbox",
-                        description: Text("Your orders will appear here after checkout.")
+                        description: Text("Confirmed orders and delivery updates appear here. Pull down to refresh.")
                     )
                 }
 
-                ForEach(viewModel.orders) { order in
+                ForEach(visibleOrders) { order in
                     NavigationLink {
                         OrderDetailsView(
                             viewModel: AppContainer.shared.makeOrderDetailsViewModel(orderID: order.id),
@@ -39,6 +45,7 @@ struct OrdersView: View {
                         orderCard(order)
                     }
                     .buttonStyle(.plain)
+                    if order.id != visibleOrders.last?.id { Divider() }
                 }
 
                 if let message = viewModel.loadMoreErrorMessage {
@@ -87,40 +94,26 @@ struct OrdersView: View {
     }
 
     private func orderCard(_ order: Order) -> some View {
-        VStack(alignment: .leading, spacing: AppSpacing.small) {
-            HStack {
-                Label(order.status, systemImage: "shippingbox")
-                    .font(AppFonts.headline)
-                Spacer()
-                PriceView(price: order.total)
+        HStack(spacing: 14) {
+            NetworkImage(url: order.items.first?.image.flatMap(URL.init(string:)))
+                .frame(width: 58, height: 58)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Order #\(order.id.suffix(8).uppercased())")
+                    .font(AppFonts.bodyMedium)
+                Text("\(order.items.reduce(0) { $0 + $1.quantity }) items · \(DisplayDate.string(order.createdAt))")
+                    .font(AppFonts.footnote)
+                    .foregroundStyle(AppColors.textSecondary)
+                OrderStatusBadge(status: order.status)
             }
-            Text("Order #\(order.id)")
-                .font(AppFonts.caption)
-                .textSelection(.enabled)
-            Text(formattedDate(order.createdAt))
-                .font(AppFonts.caption)
-                .foregroundStyle(AppColors.textSecondary)
-            Divider()
-            Text(order.items.map { "\($0.title) × \($0.quantity)" }.joined(separator: "\n"))
-                .font(AppFonts.bodyMedium)
-            Text("Deliver to \(order.shippingAddress.fullName) · \(order.shippingAddress.city)")
-                .font(AppFonts.caption)
-                .foregroundStyle(AppColors.textSecondary)
+            Spacer(minLength: 4)
+            PriceView(price: order.total)
+            Image(systemName: "chevron.right")
+                .font(.caption).foregroundStyle(AppColors.textSecondary)
         }
-        .padding(AppSpacing.medium)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AppColors.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppCornerRadius.medium))
-    }
-
-    private func formattedDate(_ value: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        var date = formatter.date(from: value)
-        if date == nil {
-            formatter.formatOptions = [.withInternetDateTime]
-            date = formatter.date(from: value)
-        }
-        return date?.formatted(date: .abbreviated, time: .shortened) ?? value
     }
 }

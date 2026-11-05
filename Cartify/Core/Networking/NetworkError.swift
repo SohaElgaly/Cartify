@@ -36,7 +36,11 @@ extension NetworkError {
             return message
 
         case .decoding(let error):
-            return "Decoding error: \(error.localizedDescription)"
+            #if DEBUG
+            return "Decoding error: \(Self.decodingDiagnostic(error))"
+            #else
+            return "We couldn't read the server response. Please try again."
+            #endif
 
         case .transport(let error):
             return "Network error: \(error.localizedDescription)"
@@ -48,6 +52,28 @@ extension NetworkError {
             return "Authentication error: \(code)"
         case .missingRefreshToken:
             return "Missing refresh token."
+        }
+    }
+}
+
+extension NetworkError {
+    /// Reports schema keys only, never response values or decoder debug descriptions.
+    static func decodingDiagnostic(_ error: Error) -> String {
+        func path(_ keys: [any CodingKey]) -> String {
+            keys.isEmpty ? "root" : keys.map(\.stringValue).joined(separator: ".")
+        }
+
+        switch error {
+        case DecodingError.keyNotFound(let key, let context):
+            return "Missing field: \(path(context.codingPath + [key]))."
+        case DecodingError.valueNotFound(_, let context):
+            return "Unexpected null at: \(path(context.codingPath))."
+        case DecodingError.typeMismatch(_, let context):
+            return "Wrong value type at: \(path(context.codingPath))."
+        case DecodingError.dataCorrupted(let context):
+            return "Invalid data at: \(path(context.codingPath))."
+        default:
+            return "The response doesn't match the expected format."
         }
     }
 }

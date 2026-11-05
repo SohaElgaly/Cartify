@@ -21,7 +21,9 @@ struct StateView: View {
         VStack(spacing: AppSpacing.medium) {
 
             Image(systemName: imageName)
-                .font(.system(size: 48))
+                .font(.system(size: 32, weight: .light))
+                .frame(width: 80, height: 80)
+                .background(imageColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 26))
                 .foregroundStyle(imageColor)
 
             if let title {
@@ -42,12 +44,12 @@ struct StateView: View {
                 .font(AppFonts.bodyMedium)
                 .foregroundStyle(.white)
                 .padding(.horizontal, AppSpacing.large)
-                .padding(.vertical, AppSpacing.small)
-                .background(AppColors.primary)
+                .padding(.vertical, 14)
+                .background(AppColors.action)
                 .clipShape(Capsule())
             }
         }
-        .padding(.horizontal, AppSpacing.large)
+        .padding(AppSpacing.large)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

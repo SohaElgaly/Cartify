@@ -10,7 +10,7 @@ import Foundation
 struct OrderItem : Decodable {
     let productId: String
     let title: String
-    let image: String
+    let image: String?
     let price: Double
     let quantity: Int
     let subtotal: Double

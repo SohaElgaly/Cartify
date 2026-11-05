@@ -45,7 +45,7 @@ struct HomeNavigationBar: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 2)
-                            .background(AppColors.primary, in: Capsule())
+                            .background(AppColors.action, in: Capsule())
                             .offset(x: 6, y: -6)
                             .accessibilityHidden(true)
                     }
